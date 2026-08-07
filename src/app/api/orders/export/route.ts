@@ -1,4 +1,4 @@
-import { getSessionOrg } from "@/lib/auth";
+import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import type { PaymentMethod } from "@generated/prisma/enums";
 
@@ -24,11 +24,11 @@ function csvEscape(value: string | number) {
 }
 
 export async function GET() {
-  const org = await getSessionOrg();
-  if (!org) return new Response("unauthorized", { status: 401 });
+  const instance = await getCurrentInstance();
+  if (!instance) return new Response("unauthorized", { status: 401 });
 
   const orders = await prisma.order.findMany({
-    where: { orgId: org.id },
+    where: { instanceId: instance.id },
     include: { items: true },
     orderBy: { createdAt: "asc" },
   });
@@ -52,7 +52,7 @@ export async function GET() {
   }
 
   const csv = `﻿${rows.join("\r\n")}\r\n`;
-  const filename = `売上管理簿_${org.name}_${new Date().toISOString().slice(0, 10)}.csv`;
+  const filename = `売上管理簿_${instance.name}_${new Date().toISOString().slice(0, 10)}.csv`;
 
   return new Response(csv, {
     headers: {

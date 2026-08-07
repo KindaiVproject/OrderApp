@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ProductModel } from "@generated/prisma/models";
 import type { PaymentMethod } from "@generated/prisma/enums";
-import { PAYMENT_METHOD_LABELS, PAYMENT_METHOD_OPTIONS } from "@/lib/payment";
+import { PAYMENT_METHOD_LABELS } from "@/lib/payment";
 import EditOrderModal, { type OrderWithItems as Order } from "@/components/EditOrderModal";
+import CompleteOrderModal from "@/components/CompleteOrderModal";
 
 const POLL_INTERVAL_MS = 2500;
 
@@ -17,15 +18,14 @@ export default function KitchenClient({
 }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [completingId, setCompletingId] = useState<string | null>(null);
-  const [completingPayment, setCompletingPayment] = useState<PaymentMethod | null>(null);
+  const [completingOrder, setCompletingOrder] = useState<Order | null>(null);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [busy, setBusy] = useState(false);
   const pollingPaused = useRef(false);
 
   useEffect(() => {
-    pollingPaused.current = editingOrder !== null;
-  }, [editingOrder]);
+    pollingPaused.current = editingOrder !== null || completingOrder !== null;
+  }, [editingOrder, completingOrder]);
 
   useEffect(() => {
     const timer = setInterval(async () => {
@@ -72,27 +72,6 @@ export default function KitchenClient({
       });
       setOrders((prev) => prev.filter((o) => !selected.has(o.id)));
       setSelected(new Set());
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  function openComplete(order: Order) {
-    setCompletingId(order.id);
-    setCompletingPayment(order.paymentMethod as PaymentMethod);
-  }
-
-  async function confirmComplete(orderId: string) {
-    if (!completingPayment) return;
-    setBusy(true);
-    try {
-      await fetch(`/api/orders/${orderId}/complete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentMethod: completingPayment }),
-      });
-      setOrders((prev) => prev.filter((o) => o.id !== orderId));
-      setCompletingId(null);
     } finally {
       setBusy(false);
     }
@@ -159,58 +138,22 @@ export default function KitchenClient({
                   ))}
                 </ul>
 
-                {completingId === order.id ? (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <div className="flex gap-1">
-                      {PAYMENT_METHOD_OPTIONS.map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => setCompletingPayment(opt.value)}
-                          className={`rounded px-2 py-1 text-xs font-medium ${
-                            completingPayment === opt.value
-                              ? "bg-neutral-900 text-white"
-                              : "bg-neutral-100 text-neutral-700"
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => confirmComplete(order.id)}
-                      disabled={busy}
-                      className="rounded bg-green-600 px-2 py-1 text-xs font-semibold text-white disabled:opacity-40"
-                    >
-                      確定
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCompletingId(null)}
-                      className="rounded px-2 py-1 text-xs text-neutral-500"
-                    >
-                      キャンセル
-                    </button>
-                  </div>
-                ) : (
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openComplete(order)}
-                      className="rounded bg-neutral-900 px-2 py-1 text-xs font-semibold text-white"
-                    >
-                      提供完了
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditingOrder(order)}
-                      className="rounded px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100"
-                    >
-                      編集
-                    </button>
-                  </div>
-                )}
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCompletingOrder(order)}
+                    className="rounded bg-neutral-900 px-2 py-1 text-xs font-semibold text-white"
+                  >
+                    提供完了
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingOrder(order)}
+                    className="rounded px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100"
+                  >
+                    編集
+                  </button>
+                </div>
               </div>
             </div>
           </li>
@@ -226,6 +169,17 @@ export default function KitchenClient({
           onSaved={(updated) => {
             setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
             setEditingOrder(null);
+          }}
+        />
+      )}
+
+      {completingOrder && (
+        <CompleteOrderModal
+          order={completingOrder}
+          onClose={() => setCompletingOrder(null)}
+          onCompleted={(completed) => {
+            setOrders((prev) => prev.filter((o) => o.id !== completed.id));
+            setCompletingOrder(null);
           }}
         />
       )}

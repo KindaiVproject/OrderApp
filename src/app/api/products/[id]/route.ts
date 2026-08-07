@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { getSessionOrg } from "@/lib/auth";
+import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const org = await getSessionOrg();
-  if (!org) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const instance = await getCurrentInstance();
+  if (!instance) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await params;
 
-  const existing = await prisma.product.findFirst({ where: { id, orgId: org.id } });
+  const existing = await prisma.product.findFirst({ where: { id, instanceId: instance.id } });
   if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const body = await request.json().catch(() => null);
@@ -34,11 +34,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const org = await getSessionOrg();
-  if (!org) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const instance = await getCurrentInstance();
+  if (!instance) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await params;
 
-  const existing = await prisma.product.findFirst({ where: { id, orgId: org.id } });
+  const existing = await prisma.product.findFirst({ where: { id, instanceId: instance.id } });
   if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   // Soft delete: keep the row so past orders/CSV history keep working.

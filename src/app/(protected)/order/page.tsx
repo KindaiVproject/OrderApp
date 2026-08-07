@@ -1,11 +1,11 @@
-import { requireOrg } from "@/lib/auth";
+import { requireCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import OrderClient from "./OrderClient";
 
 export default async function OrderPage() {
-  const org = await requireOrg();
+  const instance = await requireCurrentInstance();
   const products = await prisma.product.findMany({
-    where: { orgId: org.id, active: true },
+    where: { instanceId: instance.id, active: true },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
 

@@ -1,21 +1,21 @@
 import { NextResponse } from "next/server";
-import { getSessionOrg } from "@/lib/auth";
+import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const org = await getSessionOrg();
-  if (!org) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const instance = await getCurrentInstance();
+  if (!instance) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const products = await prisma.product.findMany({
-    where: { orgId: org.id, active: true },
+    where: { instanceId: instance.id, active: true },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
   });
   return NextResponse.json(products);
 }
 
 export async function POST(request: Request) {
-  const org = await getSessionOrg();
-  if (!org) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const instance = await getCurrentInstance();
+  if (!instance) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const body = await request.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
@@ -29,13 +29,13 @@ export async function POST(request: Request) {
   }
 
   const maxSort = await prisma.product.aggregate({
-    where: { orgId: org.id },
+    where: { instanceId: instance.id },
     _max: { sortOrder: true },
   });
 
   const product = await prisma.product.create({
     data: {
-      orgId: org.id,
+      instanceId: instance.id,
       name,
       price,
       sortOrder: (maxSort._max.sortOrder ?? 0) + 1,

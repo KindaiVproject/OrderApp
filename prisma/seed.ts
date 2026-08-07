@@ -1,36 +1,43 @@
 import { prisma } from "../src/lib/prisma";
-import { hashPassword } from "../src/lib/auth";
 
-async function upsertOrg(name: string, label: string, password: string, isTest: boolean) {
-  const hashed = await hashPassword(password);
-  return prisma.organization.upsert({
-    where: { password: hashed },
-    update: {},
-    create: { name, label, password: hashed, isTest },
-  });
-}
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "dolonaand@gmail.com";
 
-async function main() {
-  const main1 = await upsertOrg("生駒祭 出店", "", "admin", false);
-  const vpro = await upsertOrg("vpro 出店", "vpro", "vpro", false);
-  const test = await upsertOrg("テスト用", "TEST", "TEST", true);
+async function upsertInstance(name: string, label: string, active: boolean, memberEmails: string[]) {
+  const existing = await prisma.instance.findFirst({ where: { name } });
+  const instance =
+    existing ??
+    (await prisma.instance.create({ data: { name, label, active } }));
 
-  for (const org of [main1, vpro, test]) {
-    const count = await prisma.product.count({ where: { orgId: org.id } });
-    if (count > 0) continue;
+  for (const email of memberEmails) {
+    await prisma.instanceMember.upsert({
+      where: { instanceId_email: { instanceId: instance.id, email } },
+      update: {},
+      create: { instanceId: instance.id, email },
+    });
+  }
+
+  const count = await prisma.product.count({ where: { instanceId: instance.id } });
+  if (count === 0) {
     await prisma.product.createMany({
       data: [
-        { orgId: org.id, name: "焼きとうもろこし", price: 200, sortOrder: 1 },
-        { orgId: org.id, name: "検品", price: 0, sortOrder: 2 },
-        { orgId: org.id, name: "廃棄", price: 0, sortOrder: 3 },
+        { instanceId: instance.id, name: "焼きとうもろこし", price: 200, sortOrder: 1 },
+        { instanceId: instance.id, name: "検品", price: 0, sortOrder: 2 },
+        { instanceId: instance.id, name: "廃棄", price: 0, sortOrder: 3 },
       ],
     });
   }
 
-  console.log("seeded organizations:");
-  console.log("  admin  -> password: admin");
-  console.log("  vpro   -> password: vpro (label: vpro)");
-  console.log("  TEST   -> password: TEST (label: TEST)");
+  return instance;
+}
+
+async function main() {
+  await upsertInstance("生駒祭 出店", "", true, [ADMIN_EMAIL]);
+  await upsertInstance("vpro 出店", "vpro", true, [ADMIN_EMAIL]);
+  await upsertInstance("停止中サンプル", "STOP", false, [ADMIN_EMAIL]);
+
+  console.log(`seeded instances, all inviting ${ADMIN_EMAIL} as a member.`);
+  console.log(`sign in with Google as ${ADMIN_EMAIL} to see them on /instances,`);
+  console.log("or go to /admin to create more instances and invite other accounts.");
 }
 
 main()

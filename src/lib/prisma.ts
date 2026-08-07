@@ -11,7 +11,7 @@ function createClient() {
   // Prisma CLI does when reading it from prisma.config.ts.
   const url = process.env.DATABASE_URL ?? "file:./dev.db";
   const file = url.replace(/^file:/, "");
-  const absolutePath = path.resolve(process.cwd(), file);
+  const absolutePath = path.resolve(/* turbopackIgnore: true */ process.cwd(), file);
   const adapter = new PrismaBetterSqlite3({ url: `file:${absolutePath}` });
   return new PrismaClient({ adapter });
 }

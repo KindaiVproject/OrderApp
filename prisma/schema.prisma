@@ -1,6 +1,7 @@
 // Order management app for 学祭 (festival) stalls.
-// Multiple stalls share one deployment; each stall is an Organization
-// identified by its own login password.
+// Users sign in with Google and get invited into one or more Instances
+// (a stall/team's own order-management space). ADMIN_EMAIL manages
+// instances (create, activate/deactivate, invite members).
 
 generator client {
   provider = "prisma-client"
@@ -11,33 +12,100 @@ datasource db {
   provider = "sqlite"
 }
 
-model Organization {
+// --- Auth.js (NextAuth) models -------------------------------------------
+
+model User {
+  id            String    @id @default(uuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+
+  accounts    Account[]
+  sessions    Session[]
+  memberships InstanceMember[]
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// --- App models ------------------------------------------------------------
+
+model Instance {
   id        String   @id @default(uuid())
   name      String
-  // Shown in the header (e.g. "vpro"). Empty string for the default/main org.
+  // Shown in the header (e.g. "vpro"). Empty string for the default instance.
   label     String   @default("")
-  password  String   @unique
-  isTest    Boolean  @default(false)
+  // 稼働/停止. Members can only sign in to / operate an active instance.
+  active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
+  members  InstanceMember[]
   products Product[]
   orders   Order[]
 }
 
+model InstanceMember {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  // The invited Google account email. This is the matching key so an
+  // invite works even before that person has ever signed in.
+  email      String
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now())
+
+  @@unique([instanceId, email])
+}
+
 model Product {
-  id        String   @id @default(uuid())
-  orgId     String
-  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  name      String
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  name       String
   // Price in yen. 0 is allowed (used for inspection/検品 items).
-  price     Int
-  sortOrder Int      @default(0)
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  price      Int
+  sortOrder  Int      @default(0)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
 
   orderItems OrderItem[]
 
-  @@index([orgId])
+  @@index([instanceId])
 }
 
 enum PaymentMethod {
@@ -52,9 +120,9 @@ enum OrderStatus {
 }
 
 model Order {
-  id            String        @id @default(uuid())
-  orgId         String
-  org           Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   // 客の特徴 (customer description, e.g. "赤い帽子")
   customerNote  String?
   paymentMethod PaymentMethod
@@ -64,13 +132,13 @@ model Order {
 
   items OrderItem[]
 
-  @@index([orgId, status])
+  @@index([instanceId, status])
 }
 
 model OrderItem {
-  id          String  @id @default(uuid())
+  id          String   @id @default(uuid())
   orderId     String
-  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId   String?
   product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   // Snapshot of the product at order time, so CSV export/history stay

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getSessionOrg } from "@/lib/auth";
+import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: Request) {
-  const org = await getSessionOrg();
-  if (!org) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const instance = await getCurrentInstance();
+  if (!instance) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const body = await request.json().catch(() => null);
   const ids = Array.isArray(body?.ids) ? body.ids.filter((x: unknown) => typeof x === "string") : [];
@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   }
 
   await prisma.order.updateMany({
-    where: { id: { in: ids }, orgId: org.id, status: "WAITING" },
+    where: { id: { in: ids }, instanceId: instance.id, status: "WAITING" },
     data: { status: "COMPLETED", completedAt: new Date() },
   });
 

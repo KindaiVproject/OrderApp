@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
-import { getSessionOrg } from "@/lib/auth";
+import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import type { PaymentMethod } from "@generated/prisma/enums";
 
 const PAYMENT_METHODS: PaymentMethod[] = ["CASH", "PAYPAY", "D_PAYMENT"];
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const org = await getSessionOrg();
-  if (!org) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const instance = await getCurrentInstance();
+  if (!instance) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await params;
 
   const order = await prisma.order.findFirst({
-    where: { id, orgId: org.id },
+    where: { id, instanceId: instance.id },
     include: { items: true },
   });
   if (!order) return NextResponse.json({ error: "not found" }, { status: 404 });
@@ -19,11 +19,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const org = await getSessionOrg();
-  if (!org) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const instance = await getCurrentInstance();
+  if (!instance) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await params;
 
-  const existing = await prisma.order.findFirst({ where: { id, orgId: org.id } });
+  const existing = await prisma.order.findFirst({ where: { id, instanceId: instance.id } });
   if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const body = await request.json().catch(() => null);
@@ -36,7 +36,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (Array.isArray(body?.items)) {
     const productIds = body.items.map((i: { productId: string }) => i.productId);
     const products = await prisma.product.findMany({
-      where: { id: { in: productIds }, orgId: org.id },
+      where: { id: { in: productIds }, instanceId: instance.id },
     });
     const productMap = new Map(products.map((p) => [p.id, p]));
 
@@ -81,11 +81,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const org = await getSessionOrg();
-  if (!org) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const instance = await getCurrentInstance();
+  if (!instance) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await params;
 
-  const existing = await prisma.order.findFirst({ where: { id, orgId: org.id } });
+  const existing = await prisma.order.findFirst({ where: { id, instanceId: instance.id } });
   if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   await prisma.order.delete({ where: { id } });

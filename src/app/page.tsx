@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation";
-import { getSessionOrg } from "@/lib/auth";
+import { auth } from "@/auth";
+import { getCurrentInstance } from "@/lib/instance";
 
 export default async function Home() {
-  const org = await getSessionOrg();
-  redirect(org ? "/order" : "/login");
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+
+  const instance = await getCurrentInstance();
+  redirect(instance ? "/order" : "/instances");
 }

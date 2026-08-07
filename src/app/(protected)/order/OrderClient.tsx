@@ -92,6 +92,14 @@ export default function OrderClient({ products }: { products: Product[] }) {
             onClick={() => addOne(product.id)}
             className="flex flex-col items-center gap-1 rounded-lg border border-neutral-200 p-3 text-center active:bg-neutral-100"
           >
+            {product.imageUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={product.imageUrl}
+                alt=""
+                className="h-12 w-12 rounded object-cover"
+              />
+            )}
             <span className="text-sm font-medium">{product.name}</span>
             <span className="text-xs text-neutral-500">
               {product.price === 0 ? "0円" : `${product.price}円`}

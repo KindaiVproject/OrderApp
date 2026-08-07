@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
+import { isValidProductImagePath } from "@/lib/uploads";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const instance = await getCurrentInstance();
@@ -11,7 +12,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const body = await request.json().catch(() => null);
-  const data: { name?: string; price?: number; active?: boolean } = {};
+  const data: { name?: string; price?: number; active?: boolean; imageUrl?: string | null } = {};
 
   if (body?.name !== undefined) {
     const name = String(body.name).trim();
@@ -27,6 +28,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
   if (body?.active !== undefined) {
     data.active = Boolean(body.active);
+  }
+  if (body?.imageUrl !== undefined) {
+    const imageUrl = body.imageUrl === null ? null : String(body.imageUrl);
+    if (imageUrl && !isValidProductImagePath(imageUrl)) {
+      return NextResponse.json({ error: "画像の指定が不正です" }, { status: 400 });
+    }
+    data.imageUrl = imageUrl;
   }
 
   const product = await prisma.product.update({ where: { id }, data });

@@ -99,6 +99,8 @@ model Product {
   name       String
   // Price in yen. 0 is allowed (used for inspection/検品 items).
   price      Int
+  // Path under /uploads (own upload, picked default, or AI-generated).
+  imageUrl   String?
   sortOrder  Int      @default(0)
   active     Boolean  @default(true)
   createdAt  DateTime @default(now())

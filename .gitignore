@@ -44,3 +44,7 @@ next-env.d.ts
 /generated/prisma
 /dev.db
 /dev.db-journal
+
+# user-uploaded / AI-generated product images (local disk only, not
+# durable storage — see src/lib/uploads.ts)
+/public/uploads

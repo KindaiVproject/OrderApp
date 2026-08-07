@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
+import { isValidProductImagePath } from "@/lib/uploads";
 
 export async function GET() {
   const instance = await getCurrentInstance();
@@ -27,6 +28,10 @@ export async function POST(request: Request) {
   if (!Number.isInteger(price) || price < 0) {
     return NextResponse.json({ error: "価格は0以上の整数で入力してください" }, { status: 400 });
   }
+  const imageUrl = typeof body?.imageUrl === "string" ? body.imageUrl : null;
+  if (imageUrl && !isValidProductImagePath(imageUrl)) {
+    return NextResponse.json({ error: "画像の指定が不正です" }, { status: 400 });
+  }
 
   const maxSort = await prisma.product.aggregate({
     where: { instanceId: instance.id },
@@ -38,6 +43,7 @@ export async function POST(request: Request) {
       instanceId: instance.id,
       name,
       price,
+      imageUrl,
       sortOrder: (maxSort._max.sortOrder ?? 0) + 1,
     },
   });

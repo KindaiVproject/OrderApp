@@ -67,8 +67,12 @@ export default function EditOrderModal({
               key={product.id}
               type="button"
               onClick={() => changeQty(product.id, 1)}
-              className="rounded border border-neutral-200 p-2 text-center text-xs active:bg-neutral-100"
+              className="flex flex-col items-center gap-1 rounded border border-neutral-200 p-2 text-center text-xs active:bg-neutral-100"
             >
+              {product.imageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={product.imageUrl} alt="" className="h-8 w-8 rounded object-cover" />
+              )}
               {product.name}
             </button>
           ))}

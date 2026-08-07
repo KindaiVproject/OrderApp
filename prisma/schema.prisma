@@ -1,0 +1,83 @@
+// Order management app for 学祭 (festival) stalls.
+// Multiple stalls share one deployment; each stall is an Organization
+// identified by its own login password.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  // Shown in the header (e.g. "vpro"). Empty string for the default/main org.
+  label     String   @default("")
+  password  String   @unique
+  isTest    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  products Product[]
+  orders   Order[]
+}
+
+model Product {
+  id        String   @id @default(uuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name      String
+  // Price in yen. 0 is allowed (used for inspection/検品 items).
+  price     Int
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  orderItems OrderItem[]
+
+  @@index([orgId])
+}
+
+enum PaymentMethod {
+  CASH // 現金/金券
+  PAYPAY // PayPay
+  D_PAYMENT // d払い
+}
+
+enum OrderStatus {
+  WAITING
+  COMPLETED
+}
+
+model Order {
+  id            String        @id @default(uuid())
+  orgId         String
+  org           Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  // 客の特徴 (customer description, e.g. "赤い帽子")
+  customerNote  String?
+  paymentMethod PaymentMethod
+  status        OrderStatus   @default(WAITING)
+  createdAt     DateTime      @default(now())
+  completedAt   DateTime?
+
+  items OrderItem[]
+
+  @@index([orgId, status])
+}
+
+model OrderItem {
+  id          String  @id @default(uuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  // Snapshot of the product at order time, so CSV export/history stay
+  // correct even if the product is later renamed, repriced, or deleted.
+  productName String
+  unitPrice   Int
+  quantity    Int
+
+  @@index([orderId])
+}

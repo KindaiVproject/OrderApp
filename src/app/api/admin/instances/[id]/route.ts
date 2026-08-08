@@ -19,3 +19,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const instance = await prisma.instance.update({ where: { id }, data });
   return NextResponse.json(instance);
 }
+
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
+  if (session?.user?.email !== getAdminEmail()) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 403 });
+  }
+  const { id } = await params;
+
+  // Cascades to the instance's products, orders, order items, and
+  // memberships (see schema.prisma) — this permanently deletes that
+  // stall's sales history. Callers must confirm before hitting this.
+  await prisma.instance.delete({ where: { id } });
+  return NextResponse.json({ ok: true });
+}

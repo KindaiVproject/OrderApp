@@ -69,6 +69,26 @@ export default function AdminClient({ initialInstances }: { initialInstances: In
     }
   }
 
+  async function deleteInstance(instance: InstanceWithMembers) {
+    const typed = window.prompt(
+      `本当に「${instance.name}」を削除しますか？\n` +
+        "商品・注文履歴(売上データ)もすべて完全に削除され、元に戻せません。\n" +
+        "削除するには、インスタンス名を正確に入力してください。",
+    );
+    if (typed === null) return;
+    if (typed !== instance.name) {
+      alert("インスタンス名が一致しないため、削除を中止しました");
+      return;
+    }
+    const res = await fetch(`/api/admin/instances/${instance.id}`, { method: "DELETE" });
+    if (res.ok) {
+      setInstances((prev) => prev.filter((i) => i.id !== instance.id));
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error ?? "削除に失敗しました");
+    }
+  }
+
   async function removeMember(instanceId: string, memberId: string) {
     const res = await fetch(`/api/admin/instances/${instanceId}/members/${memberId}`, {
       method: "DELETE",
@@ -128,15 +148,24 @@ export default function AdminClient({ initialInstances }: { initialInstances: In
                 <span className="text-sm font-medium text-neutral-800">{instance.name}</span>
                 {instance.label && <span className="ml-1 text-xs text-neutral-400">({instance.label})</span>}
               </div>
-              <button
-                type="button"
-                onClick={() => toggleActive(instance)}
-                className={`rounded px-2 py-1 text-[10px] font-bold ${
-                  instance.active ? "bg-green-100 text-green-700" : "bg-neutral-200 text-neutral-500"
-                }`}
-              >
-                {instance.active ? "稼働中" : "停止中"}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleActive(instance)}
+                  className={`rounded px-2 py-1 text-[10px] font-bold ${
+                    instance.active ? "bg-green-100 text-green-700" : "bg-neutral-200 text-neutral-500"
+                  }`}
+                >
+                  {instance.active ? "稼働中" : "停止中"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteInstance(instance)}
+                  className="rounded px-2 py-1 text-[10px] font-bold text-red-600 hover:bg-red-50"
+                >
+                  削除
+                </button>
+              </div>
             </div>
 
             <ul className="mt-2 flex flex-col gap-1">

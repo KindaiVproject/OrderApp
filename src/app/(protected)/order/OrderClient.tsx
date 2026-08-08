@@ -85,7 +85,7 @@ export default function OrderClient({ products }: { products: Product[] }) {
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4">
       <h1 className="text-base font-semibold text-neutral-800">注文</h1>
 
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
         {products.map((product) => (
           <ProductCard key={product.id} product={product} onClick={() => addOne(product.id)} />
         ))}

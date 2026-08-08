@@ -62,7 +62,7 @@ export default function EditOrderModal({
       <div className="flex max-h-[85vh] w-full max-w-md flex-col gap-3 overflow-y-auto rounded-lg bg-white p-4">
         <h2 className="text-sm font-semibold text-neutral-800">注文を編集</h2>
 
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {products.map((product) => (
             <ProductCard
               key={product.id}

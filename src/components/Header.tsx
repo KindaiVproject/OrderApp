@@ -67,9 +67,26 @@ export default function Header({
       <button
         type="button"
         onClick={() => signOut({ callbackUrl: "/login" })}
-        className="ml-auto rounded px-2 py-1 text-xs font-medium text-neutral-500 hover:bg-neutral-100"
+        aria-label="ログアウト"
+        title="ログアウト"
+        className="ml-auto flex h-7 w-7 items-center justify-center rounded text-neutral-500 hover:bg-neutral-100"
       >
-        ログアウト
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path
+            d="M6.5 2H3.5A1.5 1.5 0 0 0 2 3.5v9A1.5 1.5 0 0 0 3.5 14h3"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M10.5 11l3-3-3-3M13.2 8H6"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </button>
     </header>
   );

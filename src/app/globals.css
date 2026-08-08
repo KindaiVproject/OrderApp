@@ -1,7 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
+  /* A soft gray page background so white cards/sections read as
+     distinct objects instead of blending into the page. */
+  --background: #f2f2f3;
   --foreground: #171717;
   color-scheme: light;
 }

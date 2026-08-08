@@ -91,7 +91,7 @@ export default function AdminClient({ initialInstances }: { initialInstances: In
         </Link>
       </div>
 
-      <form onSubmit={createInstance} className="flex flex-wrap items-end gap-2 rounded-lg border border-neutral-200 p-3">
+      <form onSubmit={createInstance} className="flex flex-wrap items-end gap-2 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
         <label className="flex flex-col gap-1 text-xs text-neutral-600">
           インスタンス名
           <input
@@ -122,7 +122,7 @@ export default function AdminClient({ initialInstances }: { initialInstances: In
 
       <ul className="flex flex-col gap-3">
         {instances.map((instance) => (
-          <li key={instance.id} className="rounded-lg border border-neutral-200 p-3">
+          <li key={instance.id} className="rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-sm font-medium text-neutral-800">{instance.name}</span>

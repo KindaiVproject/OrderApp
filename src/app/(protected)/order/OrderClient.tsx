@@ -103,7 +103,7 @@ export default function OrderClient({ products }: { products: Product[] }) {
         )}
       </div>
 
-      <div className="flex flex-col gap-2 rounded-lg border border-neutral-200 p-3">
+      <div className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
         <h2 className="text-sm font-semibold text-neutral-700">選択中の商品</h2>
         {lines.length === 0 && <p className="text-sm text-neutral-400">まだ商品が選択されていません</p>}
         {lines.map((line) => (
@@ -133,33 +133,35 @@ export default function OrderClient({ products }: { products: Product[] }) {
         )}
       </div>
 
-      <label className="flex flex-col gap-1 text-xs text-neutral-600">
-        客の特徴(任意)
-        <input
-          value={customerNote}
-          onChange={(e) => setCustomerNote(e.target.value)}
-          placeholder="例: 赤い帽子、黒いリュック"
-          className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
-        />
-      </label>
+      <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
+        <label className="flex flex-col gap-1 text-xs text-neutral-600">
+          客の特徴(任意)
+          <input
+            value={customerNote}
+            onChange={(e) => setCustomerNote(e.target.value)}
+            placeholder="例: 赤い帽子、黒いリュック"
+            className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
+          />
+        </label>
 
-      <div className="flex flex-col gap-1">
-        <span className="text-xs text-neutral-600">支払い方法</span>
-        <div className="flex gap-2">
-          {PAYMENT_METHOD_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setPaymentMethod(opt.value)}
-              className={`flex-1 rounded-md border px-2 py-2 text-sm font-medium ${
-                paymentMethod === opt.value
-                  ? "border-neutral-900 bg-neutral-900 text-white"
-                  : "border-neutral-300 text-neutral-700"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-neutral-600">支払い方法</span>
+          <div className="flex gap-2">
+            {PAYMENT_METHOD_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setPaymentMethod(opt.value)}
+                className={`flex-1 rounded-md border px-2 py-2 text-sm font-medium ${
+                  paymentMethod === opt.value
+                    ? "border-neutral-900 bg-neutral-900 text-white"
+                    : "border-neutral-300 text-neutral-700"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

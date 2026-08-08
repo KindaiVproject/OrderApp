@@ -85,7 +85,7 @@ export default function KitchenClient({
       </div>
 
       {requiredCounts.length > 0 && (
-        <div className="rounded-lg border border-neutral-200 p-3">
+        <div className="rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
           <h2 className="mb-2 text-sm font-semibold text-neutral-700">作るべき個数</h2>
           <div className="flex flex-wrap gap-2">
             {requiredCounts.map(([name, qty]) => (
@@ -101,7 +101,7 @@ export default function KitchenClient({
       )}
 
       {selected.size > 0 && (
-        <div className="flex items-center justify-between rounded-lg bg-neutral-900 px-3 py-2 text-white">
+        <div className="flex items-center justify-between rounded-lg bg-neutral-900 px-3 py-2 text-white shadow-sm">
           <span className="text-sm">{selected.size}件選択中</span>
           <button
             type="button"
@@ -116,7 +116,7 @@ export default function KitchenClient({
 
       <ul className="flex flex-col gap-2">
         {orders.map((order) => (
-          <li key={order.id} className="rounded-lg border border-neutral-200 p-3">
+          <li key={order.id} className="rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
             <div className="flex items-start gap-2">
               <input
                 type="checkbox"

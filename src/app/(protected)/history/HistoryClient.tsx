@@ -33,7 +33,7 @@ export default function HistoryClient({
         {orders.map((order) => {
           const total = order.items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
           return (
-            <li key={order.id} className="rounded-lg border border-neutral-200 p-3">
+            <li key={order.id} className="rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
               <div className="flex flex-wrap items-center gap-x-2 text-xs text-neutral-500">
                 <span>{new Date(order.createdAt).toLocaleString("ja-JP")}</span>
                 <span

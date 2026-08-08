@@ -83,7 +83,7 @@ export default function ProductImagePicker({
       </div>
 
       {showDefaults && (
-        <div className="flex flex-wrap gap-2 rounded-md border border-neutral-200 p-2">
+        <div className="flex flex-wrap gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-2">
           {DEFAULT_PRODUCT_IMAGES.map((img) => (
             <button
               key={img.url}

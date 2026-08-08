@@ -35,8 +35,8 @@ export default function ProductCard({
           onClick();
         }
       }}
-      className={`relative aspect-square cursor-pointer overflow-hidden rounded-lg border border-neutral-200 text-left active:opacity-80 ${
-        product.imageUrl ? "" : "flex flex-col items-center justify-center gap-1 bg-neutral-50 px-2 text-center"
+      className={`relative aspect-square cursor-pointer overflow-hidden rounded-lg border border-neutral-200 text-left shadow-sm active:opacity-80 ${
+        product.imageUrl ? "bg-white" : "flex flex-col items-center justify-center gap-1 bg-neutral-50 px-2 text-center"
       }`}
     >
       {product.imageUrl ? (

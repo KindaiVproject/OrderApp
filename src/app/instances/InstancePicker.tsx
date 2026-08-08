@@ -32,7 +32,7 @@ export default function InstancePicker({ instances }: { instances: InstanceModel
 
   if (instances.length === 0) {
     return (
-      <p className="rounded-lg border border-neutral-200 p-4 text-center text-sm text-neutral-500">
+      <p className="rounded-lg border border-neutral-200 bg-white p-4 text-center text-sm text-neutral-500 shadow-sm">
         まだどのインスタンスにも招待されていません。管理者に招待を依頼してください。
       </p>
     );
@@ -46,10 +46,10 @@ export default function InstancePicker({ instances }: { instances: InstanceModel
           type="button"
           disabled={!instance.active || busyId === instance.id}
           onClick={() => select(instance)}
-          className={`flex items-center justify-between rounded-lg border p-3 text-left ${
+          className={`flex items-center justify-between rounded-lg border p-3 text-left shadow-sm ${
             instance.active
-              ? "border-neutral-200 hover:bg-neutral-50"
-              : "cursor-not-allowed border-neutral-100 opacity-50"
+              ? "border-neutral-200 bg-white hover:bg-neutral-50"
+              : "cursor-not-allowed border-neutral-100 bg-neutral-50 opacity-50"
           }`}
         >
           <span>

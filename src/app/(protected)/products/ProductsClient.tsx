@@ -57,7 +57,7 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4">
       <h1 className="text-base font-semibold text-neutral-800">商品管理</h1>
 
-      <form onSubmit={handleCreate} className="flex flex-col gap-3 rounded-lg border border-neutral-200 p-3">
+      <form onSubmit={handleCreate} className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col gap-1 text-xs text-neutral-600">
             商品名
@@ -95,7 +95,7 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
         {products.map((product) => (
           <li
             key={product.id}
-            className="flex items-center justify-between gap-2 rounded-lg border border-neutral-200 p-2"
+            className="flex items-center justify-between gap-2 rounded-lg border border-neutral-200 bg-white p-2 shadow-sm"
           >
             <span className="flex items-center gap-2 text-sm">
               <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded border border-neutral-100 bg-neutral-50">

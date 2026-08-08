@@ -24,7 +24,7 @@ export default function Header({
   const pathname = usePathname();
 
   return (
-    <header className="flex flex-wrap items-center gap-2 border-b border-neutral-200 bg-white px-3 py-2">
+    <header className="flex flex-wrap items-center gap-2 border-b border-neutral-200 bg-white px-3 py-2 shadow-sm">
       <span className="mr-1 flex items-center gap-1.5 text-sm font-semibold text-neutral-800">
         <Image src="/logo.svg" alt="" width={20} height={20} className="rounded-[5px]" />
         注文管理
@@ -35,20 +35,23 @@ export default function Header({
       >
         {instanceLabel || instanceName}
       </span>
-      <nav className="flex flex-wrap items-center gap-1">
+      <nav className="flex flex-wrap items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-100 p-1">
         {NAV_ITEMS.map((item) => (
           <Link
             key={item.href}
             href={item.href}
             className={`rounded px-2 py-1 text-xs font-medium ${
               pathname === item.href
-                ? "bg-neutral-900 text-white"
-                : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+                ? "bg-neutral-900 text-white shadow-sm"
+                : "text-neutral-700 hover:bg-white hover:shadow-sm"
             }`}
           >
             {item.label}
           </Link>
         ))}
+      </nav>
+
+      <div className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-white p-1 shadow-sm">
         <Link
           href="/instances"
           className="rounded px-2 py-1 text-xs font-medium text-neutral-500 hover:bg-neutral-100"
@@ -63,7 +66,7 @@ export default function Header({
             Admin
           </Link>
         )}
-      </nav>
+      </div>
       <button
         type="button"
         onClick={() => signOut({ callbackUrl: "/login" })}

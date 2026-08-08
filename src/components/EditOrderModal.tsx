@@ -68,6 +68,9 @@ export default function EditOrderModal({
               key={product.id}
               product={product}
               onClick={() => changeQty(product.id, 1)}
+              quantity={cart[product.id] ?? 0}
+              onIncrement={() => changeQty(product.id, 1)}
+              onDecrement={() => changeQty(product.id, -1)}
               compact
             />
           ))}

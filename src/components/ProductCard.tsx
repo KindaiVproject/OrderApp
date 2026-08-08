@@ -10,19 +10,32 @@ type ProductCardData = {
 export default function ProductCard({
   product,
   onClick,
+  quantity = 0,
+  onIncrement,
+  onDecrement,
   compact = false,
 }: {
   product: ProductCardData;
   onClick: () => void;
+  quantity?: number;
+  onIncrement?: () => void;
+  onDecrement?: () => void;
   compact?: boolean;
 }) {
   const priceLabel = product.price === 0 ? "0円" : `${product.price}円`;
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className={`relative aspect-square overflow-hidden rounded-lg border border-neutral-200 text-left active:opacity-80 ${
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      className={`relative aspect-square cursor-pointer overflow-hidden rounded-lg border border-neutral-200 text-left active:opacity-80 ${
         product.imageUrl ? "" : "flex flex-col items-center justify-center gap-1 bg-neutral-50 px-2 text-center"
       }`}
     >
@@ -49,6 +62,45 @@ export default function ProductCard({
           <span className={`text-neutral-500 ${compact ? "text-[10px]" : "text-xs"}`}>{priceLabel}</span>
         </>
       )}
-    </button>
+
+      {(onIncrement || onDecrement) && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className={`absolute right-1 top-1 flex items-center gap-0.5 rounded-full bg-white/95 shadow ${
+            compact ? "px-0.5 py-0.5" : "px-1 py-1"
+          }`}
+        >
+          {quantity > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={onDecrement}
+                className={`flex items-center justify-center rounded-full font-bold text-neutral-700 hover:bg-neutral-100 ${
+                  compact ? "h-4 w-4 text-[10px]" : "h-5 w-5 text-xs"
+                }`}
+              >
+                −
+              </button>
+              <span
+                className={`min-w-[1em] text-center font-semibold text-neutral-800 ${
+                  compact ? "text-[10px]" : "text-xs"
+                }`}
+              >
+                {quantity}
+              </span>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={onIncrement}
+            className={`flex items-center justify-center rounded-full font-bold text-neutral-700 hover:bg-neutral-100 ${
+              compact ? "h-4 w-4 text-[10px]" : "h-5 w-5 text-xs"
+            }`}
+          >
+            +
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

@@ -87,7 +87,14 @@ export default function OrderClient({ products }: { products: Product[] }) {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
         {products.map((product) => (
-          <ProductCard key={product.id} product={product} onClick={() => addOne(product.id)} />
+          <ProductCard
+            key={product.id}
+            product={product}
+            onClick={() => addOne(product.id)}
+            quantity={cart[product.id] ?? 0}
+            onIncrement={() => addOne(product.id)}
+            onDecrement={() => changeQty(product.id, -1)}
+          />
         ))}
         {products.length === 0 && (
           <p className="col-span-full text-sm text-neutral-400">

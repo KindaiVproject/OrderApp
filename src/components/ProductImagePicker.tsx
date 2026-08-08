@@ -38,7 +38,7 @@ export default function ProductImagePicker({
         <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-md border border-neutral-200 bg-neutral-50">
           {value ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={value} alt="" className="h-full w-full object-cover" />
+            <img src={value} alt="" draggable={false} className="h-full w-full object-cover" />
           ) : (
             <span className="text-[10px] text-neutral-400">画像なし</span>
           )}
@@ -98,7 +98,7 @@ export default function ProductImagePicker({
               title={img.label}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img.url} alt={img.label} className="h-full w-full object-cover" />
+              <img src={img.url} alt={img.label} draggable={false} className="h-full w-full object-cover" />
             </button>
           ))}
         </div>

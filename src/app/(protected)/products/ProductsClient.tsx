@@ -101,7 +101,7 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
               <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded border border-neutral-100 bg-neutral-50">
                 {product.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={product.imageUrl} alt="" className="h-full w-full object-cover" />
+                  <img src={product.imageUrl} alt="" draggable={false} className="h-full w-full object-cover" />
                 ) : (
                   <span className="text-[9px] text-neutral-300">なし</span>
                 )}

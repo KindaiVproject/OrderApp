@@ -42,7 +42,12 @@ export default function ProductCard({
       {product.imageUrl ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={product.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <img
+            src={product.imageUrl}
+            alt=""
+            draggable={false}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
           <div
             className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-2 pb-1.5 ${
               compact ? "pt-3" : "pt-6"

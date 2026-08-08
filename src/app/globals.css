@@ -37,3 +37,11 @@ textarea,
   -webkit-user-select: text;
   user-select: text;
 }
+
+/* Product images are tap targets (order grid, kitchen/edit pickers) —
+   the browser's native drag-to-save-image ghost gets in the way. */
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
+  -webkit-touch-callout: none;
+}

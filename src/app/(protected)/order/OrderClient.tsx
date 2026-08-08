@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { ProductModel as Product } from "@generated/prisma/models";
 import type { PaymentMethod } from "@generated/prisma/enums";
 import { PAYMENT_METHOD_OPTIONS } from "@/lib/payment";
+import ProductCard from "@/components/ProductCard";
 
 type CartLine = { product: Product; quantity: number };
 
@@ -86,25 +87,7 @@ export default function OrderClient({ products }: { products: Product[] }) {
 
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
         {products.map((product) => (
-          <button
-            key={product.id}
-            type="button"
-            onClick={() => addOne(product.id)}
-            className="flex flex-col items-center gap-1 rounded-lg border border-neutral-200 p-3 text-center active:bg-neutral-100"
-          >
-            {product.imageUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={product.imageUrl}
-                alt=""
-                className="h-12 w-12 rounded object-cover"
-              />
-            )}
-            <span className="text-sm font-medium">{product.name}</span>
-            <span className="text-xs text-neutral-500">
-              {product.price === 0 ? "0円" : `${product.price}円`}
-            </span>
-          </button>
+          <ProductCard key={product.id} product={product} onClick={() => addOne(product.id)} />
         ))}
         {products.length === 0 && (
           <p className="col-span-full text-sm text-neutral-400">

@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { OrderModel, OrderItemModel, ProductModel } from "@generated/prisma/models";
 import type { PaymentMethod } from "@generated/prisma/enums";
 import { PAYMENT_METHOD_OPTIONS } from "@/lib/payment";
+import ProductCard from "@/components/ProductCard";
 
 export type OrderWithItems = OrderModel & { items: OrderItemModel[] };
 
@@ -61,20 +62,14 @@ export default function EditOrderModal({
       <div className="flex max-h-[85vh] w-full max-w-md flex-col gap-3 overflow-y-auto rounded-lg bg-white p-4">
         <h2 className="text-sm font-semibold text-neutral-800">注文を編集</h2>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           {products.map((product) => (
-            <button
+            <ProductCard
               key={product.id}
-              type="button"
+              product={product}
               onClick={() => changeQty(product.id, 1)}
-              className="flex flex-col items-center gap-1 rounded border border-neutral-200 p-2 text-center text-xs active:bg-neutral-100"
-            >
-              {product.imageUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={product.imageUrl} alt="" className="h-8 w-8 rounded object-cover" />
-              )}
-              {product.name}
-            </button>
+              compact
+            />
           ))}
         </div>
 

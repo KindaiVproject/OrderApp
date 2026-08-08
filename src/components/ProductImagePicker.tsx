@@ -13,8 +13,6 @@ export default function ProductImagePicker({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showDefaults, setShowDefaults] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [prompt, setPrompt] = useState("");
-  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleFile(file: File) {
@@ -31,27 +29,6 @@ export default function ProductImagePicker({
       setError(err instanceof Error ? err.message : "アップロードに失敗しました");
     } finally {
       setUploading(false);
-    }
-  }
-
-  async function handleGenerate() {
-    if (!prompt.trim()) return;
-    setError(null);
-    setGenerating(true);
-    try {
-      const res = await fetch("/api/products/generate-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: prompt.trim() }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "生成に失敗しました");
-      onChange(data.imageUrl);
-      setPrompt("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "生成に失敗しました");
-    } finally {
-      setGenerating(false);
     }
   }
 
@@ -126,23 +103,6 @@ export default function ProductImagePicker({
           ))}
         </div>
       )}
-
-      <div className="flex gap-1">
-        <input
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="AIで生成: 例 焼きたてのたこ焼き6個"
-          className="flex-1 rounded border border-neutral-300 px-2 py-1 text-xs"
-        />
-        <button
-          type="button"
-          onClick={handleGenerate}
-          disabled={generating || !prompt.trim()}
-          className="rounded bg-neutral-800 px-2 py-1 text-xs font-medium text-white disabled:opacity-40"
-        >
-          {generating ? "生成中..." : "AIで生成"}
-        </button>
-      </div>
 
       {error && <p className="text-xs text-red-600">{error}</p>}
     </div>

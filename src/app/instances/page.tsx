@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { getAdminEmail, getMyInstances, requireSession } from "@/lib/instance";
+import { getMyInstances, isAdminEmail, requireSession } from "@/lib/instance";
 import InstancePicker from "./InstancePicker";
 
 export default async function InstancesPage() {
   const session = await requireSession();
   const instances = await getMyInstances();
-  const isAdmin = session.user!.email === getAdminEmail();
+  const isAdmin = await isAdminEmail(session.user!.email);
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-4 p-4">

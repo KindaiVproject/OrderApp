@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getAdminEmail } from "@/lib/instance";
+import { isAdminEmail } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 
 export async function DELETE(
@@ -8,7 +8,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; memberId: string }> },
 ) {
   const session = await auth();
-  if (session?.user?.email !== getAdminEmail()) {
+  if (!(await isAdminEmail(session?.user?.email))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 403 });
   }
   const { id, memberId } = await params;

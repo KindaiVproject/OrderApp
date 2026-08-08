@@ -1,11 +1,11 @@
 import Header from "@/components/Header";
-import { getAdminEmail, requireCurrentInstance } from "@/lib/instance";
+import { isAdminEmail, requireCurrentInstance } from "@/lib/instance";
 import { auth } from "@/auth";
 
 export default async function ProtectedLayout({ children }: { children: React.ReactNode }) {
   const instance = await requireCurrentInstance();
   const session = await auth();
-  const isAdmin = session?.user?.email === getAdminEmail();
+  const isAdmin = await isAdminEmail(session?.user?.email);
 
   return (
     <div className="flex min-h-dvh flex-col">

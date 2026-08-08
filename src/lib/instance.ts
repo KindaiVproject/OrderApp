@@ -5,8 +5,17 @@ import { prisma } from "@/lib/prisma";
 
 export const CURRENT_INSTANCE_COOKIE = "current_instance_id";
 
+// The bootstrap admin, always an admin regardless of AdminInvite rows —
+// so there's always at least one account that can invite other admins.
 export function getAdminEmail() {
   return process.env.ADMIN_EMAIL ?? "dolonaand@gmail.com";
+}
+
+export async function isAdminEmail(email: string | null | undefined): Promise<boolean> {
+  if (!email) return false;
+  if (email === getAdminEmail()) return true;
+  const invite = await prisma.adminInvite.findUnique({ where: { email } });
+  return invite !== null;
 }
 
 export async function requireSession() {
@@ -17,7 +26,7 @@ export async function requireSession() {
 
 export async function requireAdmin() {
   const session = await requireSession();
-  if (session.user!.email !== getAdminEmail()) redirect("/instances");
+  if (!(await isAdminEmail(session.user!.email))) redirect("/instances");
   return session;
 }
 

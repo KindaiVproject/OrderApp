@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { ProductModel as Product } from "@generated/prisma/models";
 import ProductImagePicker from "@/components/ProductImagePicker";
+import ConfirmModal from "@/components/ConfirmModal";
 
 export default function ProductsClient({ initialProducts }: { initialProducts: Product[] }) {
   const [products, setProducts] = useState(initialProducts);
@@ -12,6 +13,7 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -46,11 +48,9 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
   }
 
   async function handleArchive(id: string) {
-    if (!confirm("この商品を削除しますか？(過去の注文履歴には影響しません)")) return;
     const res = await fetch(`/api/products/${id}`, { method: "DELETE" });
-    if (res.ok) {
-      setProducts((prev) => prev.filter((p) => p.id !== id));
-    }
+    if (!res.ok) throw new Error("削除に失敗しました");
+    setProducts((prev) => prev.filter((p) => p.id !== id));
   }
 
   return (
@@ -121,7 +121,7 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
               </button>
               <button
                 type="button"
-                onClick={() => handleArchive(product.id)}
+                onClick={() => setDeletingProduct(product)}
                 className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
               >
                 削除
@@ -139,6 +139,18 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
           onSaved={(updated) => {
             setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
             setEditingProduct(null);
+          }}
+        />
+      )}
+
+      {deletingProduct && (
+        <ConfirmModal
+          title="商品を削除"
+          message={`「${deletingProduct.name}」を削除しますか？(過去の注文履歴には影響しません)`}
+          onClose={() => setDeletingProduct(null)}
+          onConfirm={async () => {
+            await handleArchive(deletingProduct.id);
+            setDeletingProduct(null);
           }}
         />
       )}

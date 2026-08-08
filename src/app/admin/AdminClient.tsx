@@ -2,11 +2,20 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import type { InstanceModel, InstanceMemberModel } from "@generated/prisma/models";
+import type { InstanceModel, InstanceMemberModel, AdminInviteModel } from "@generated/prisma/models";
+import ConfirmModal from "@/components/ConfirmModal";
 
 type InstanceWithMembers = InstanceModel & { members: InstanceMemberModel[] };
 
-export default function AdminClient({ initialInstances }: { initialInstances: InstanceWithMembers[] }) {
+export default function AdminClient({
+  initialInstances,
+  initialAdminInvites,
+  bootstrapAdminEmail,
+}: {
+  initialInstances: InstanceWithMembers[];
+  initialAdminInvites: AdminInviteModel[];
+  bootstrapAdminEmail: string;
+}) {
   const [instances, setInstances] = useState(initialInstances);
   const [name, setName] = useState("");
   const [label, setLabel] = useState("");
@@ -14,6 +23,10 @@ export default function AdminClient({ initialInstances }: { initialInstances: In
   const [busy, setBusy] = useState(false);
   const [inviteEmail, setInviteEmail] = useState<Record<string, string>>({});
   const [deletingInstance, setDeletingInstance] = useState<InstanceWithMembers | null>(null);
+  const [adminInvites, setAdminInvites] = useState(initialAdminInvites);
+  const [newAdminEmail, setNewAdminEmail] = useState("");
+  const [adminError, setAdminError] = useState<string | null>(null);
+  const [removingAdmin, setRemovingAdmin] = useState<AdminInviteModel | null>(null);
 
   async function createInstance(e: React.FormEvent) {
     e.preventDefault();
@@ -80,6 +93,26 @@ export default function AdminClient({ initialInstances }: { initialInstances: In
           i.id === instanceId ? { ...i, members: i.members.filter((m) => m.id !== memberId) } : i,
         ),
       );
+    }
+  }
+
+  async function inviteAdmin(e: React.FormEvent) {
+    e.preventDefault();
+    setAdminError(null);
+    const email = newAdminEmail.trim().toLowerCase();
+    if (!email) return;
+    try {
+      const res = await fetch("/api/admin/admins", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "招待に失敗しました");
+      setAdminInvites((prev) => (prev.some((a) => a.id === data.id) ? prev : [...prev, data]));
+      setNewAdminEmail("");
+    } catch (err) {
+      setAdminError(err instanceof Error ? err.message : "招待に失敗しました");
     }
   }
 
@@ -186,6 +219,75 @@ export default function AdminClient({ initialInstances }: { initialInstances: In
         ))}
         {instances.length === 0 && <p className="text-sm text-neutral-400">インスタンスがありません</p>}
       </ul>
+
+      <div className="flex flex-col gap-3">
+        <h2 className="text-base font-semibold text-neutral-800">管理者(Admin)</h2>
+
+        <form
+          onSubmit={inviteAdmin}
+          className="flex flex-wrap items-end gap-2 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm"
+        >
+          <label className="flex flex-1 flex-col gap-1 text-xs text-neutral-600">
+            招待するGoogleアカウントのメール
+            <input
+              value={newAdminEmail}
+              onChange={(e) => setNewAdminEmail(e.target.value)}
+              placeholder="例: someone@gmail.com"
+              className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
+            />
+          </label>
+          <button
+            type="submit"
+            className="rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white"
+          >
+            管理者に招待
+          </button>
+        </form>
+        {adminError && <p className="text-sm text-red-600">{adminError}</p>}
+
+        <ul className="flex flex-col gap-2">
+          <li className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-3 text-sm shadow-sm">
+            <span>{bootstrapAdminEmail}</span>
+            <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] font-bold text-neutral-600">
+              常時管理者
+            </span>
+          </li>
+          {adminInvites
+            .filter((invite) => invite.email !== bootstrapAdminEmail)
+            .map((invite) => (
+              <li
+                key={invite.id}
+                className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-3 text-sm shadow-sm"
+              >
+                <span>{invite.email}</span>
+                <button
+                  type="button"
+                  onClick={() => setRemovingAdmin(invite)}
+                  className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                >
+                  権限を削除
+                </button>
+              </li>
+            ))}
+        </ul>
+      </div>
+
+      {removingAdmin && (
+        <ConfirmModal
+          title="管理者権限を削除"
+          message={`${removingAdmin.email} のインスタンス管理権限を削除しますか？`}
+          onClose={() => setRemovingAdmin(null)}
+          onConfirm={async () => {
+            const res = await fetch(`/api/admin/admins/${removingAdmin.id}`, { method: "DELETE" });
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              throw new Error(data.error ?? "削除に失敗しました");
+            }
+            setAdminInvites((prev) => prev.filter((a) => a.id !== removingAdmin.id));
+            setRemovingAdmin(null);
+          }}
+        />
+      )}
 
       {deletingInstance && (
         <DeleteInstanceModal

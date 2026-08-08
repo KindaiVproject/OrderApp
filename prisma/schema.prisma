@@ -64,6 +64,15 @@ model VerificationToken {
 
 // --- App models ------------------------------------------------------------
 
+// Grants admin (instance management) access to a Google account, in
+// addition to the ADMIN_EMAIL env var bootstrap admin. See
+// src/lib/instance.ts#isAdminEmail.
+model AdminInvite {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
+
 model Instance {
   id        String   @id @default(uuid())
   name      String

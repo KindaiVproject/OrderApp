@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getAdminEmail } from "@/lib/instance";
+import { isAdminEmail } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (session?.user?.email !== getAdminEmail()) {
+  if (!(await isAdminEmail(session?.user?.email))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 403 });
   }
 
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     data: {
       name,
       label,
-      members: { create: { email: session.user.email } },
+      members: { create: { email: session!.user!.email! } },
     },
     include: { members: true },
   });

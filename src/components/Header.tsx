@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 
 const NAV_ITEMS = [
@@ -22,6 +23,25 @@ export default function Header({
   isAdmin: boolean;
 }) {
   const pathname = usePathname();
+  const linkRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
+  const [indicator, setIndicator] = useState<{ left: number; width: number; ready: boolean }>({
+    left: 0,
+    width: 0,
+    ready: false,
+  });
+
+  useEffect(() => {
+    function measure() {
+      const activeItem = NAV_ITEMS.find((item) => item.href === pathname);
+      const el = activeItem ? linkRefs.current[activeItem.href] : null;
+      if (el) {
+        setIndicator({ left: el.offsetLeft, width: el.offsetWidth, ready: true });
+      }
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [pathname]);
 
   return (
     <header className="flex flex-wrap items-center gap-2 border-b border-neutral-200 bg-white px-3 py-2 shadow-sm">
@@ -35,20 +55,31 @@ export default function Header({
       >
         {instanceLabel || instanceName}
       </span>
-      <nav className="flex flex-wrap items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-100 p-1">
-        {NAV_ITEMS.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`rounded px-2 py-1 text-xs font-medium ${
-              pathname === item.href
-                ? "bg-neutral-900 text-white shadow-sm"
-                : "text-neutral-700 hover:bg-white hover:shadow-sm"
-            }`}
-          >
-            {item.label}
-          </Link>
-        ))}
+      <nav className="relative flex flex-wrap items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-100 p-1">
+        <span
+          aria-hidden
+          className={`absolute inset-y-1 rounded bg-neutral-900 shadow-sm transition-all duration-300 ease-out ${
+            indicator.ready ? "opacity-100" : "opacity-0"
+          }`}
+          style={{ left: indicator.left, width: indicator.width }}
+        />
+        {NAV_ITEMS.map((item) => {
+          const active = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              ref={(el) => {
+                linkRefs.current[item.href] = el;
+              }}
+              className={`relative z-10 rounded px-2 py-1 text-xs font-medium transition-colors duration-200 ${
+                active ? "text-white" : "text-neutral-700 hover:bg-white hover:shadow-sm"
+              }`}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
 
       <div className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-white p-1 shadow-sm">

@@ -13,6 +13,7 @@ export default function AdminClient({ initialInstances }: { initialInstances: In
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [inviteEmail, setInviteEmail] = useState<Record<string, string>>({});
+  const [deletingInstance, setDeletingInstance] = useState<InstanceWithMembers | null>(null);
 
   async function createInstance(e: React.FormEvent) {
     e.preventDefault();
@@ -66,26 +67,6 @@ export default function AdminClient({ initialInstances }: { initialInstances: In
         prev.map((i) => (i.id === instanceId ? { ...i, members: [...i.members, data] } : i)),
       );
       setInviteEmail((prev) => ({ ...prev, [instanceId]: "" }));
-    }
-  }
-
-  async function deleteInstance(instance: InstanceWithMembers) {
-    const typed = window.prompt(
-      `本当に「${instance.name}」を削除しますか？\n` +
-        "商品・注文履歴(売上データ)もすべて完全に削除され、元に戻せません。\n" +
-        "削除するには、インスタンス名を正確に入力してください。",
-    );
-    if (typed === null) return;
-    if (typed !== instance.name) {
-      alert("インスタンス名が一致しないため、削除を中止しました");
-      return;
-    }
-    const res = await fetch(`/api/admin/instances/${instance.id}`, { method: "DELETE" });
-    if (res.ok) {
-      setInstances((prev) => prev.filter((i) => i.id !== instance.id));
-    } else {
-      const data = await res.json().catch(() => ({}));
-      alert(data.error ?? "削除に失敗しました");
     }
   }
 
@@ -160,7 +141,7 @@ export default function AdminClient({ initialInstances }: { initialInstances: In
                 </button>
                 <button
                   type="button"
-                  onClick={() => deleteInstance(instance)}
+                  onClick={() => setDeletingInstance(instance)}
                   className="rounded px-2 py-1 text-[10px] font-bold text-red-600 hover:bg-red-50"
                 >
                   削除
@@ -205,6 +186,86 @@ export default function AdminClient({ initialInstances }: { initialInstances: In
         ))}
         {instances.length === 0 && <p className="text-sm text-neutral-400">インスタンスがありません</p>}
       </ul>
+
+      {deletingInstance && (
+        <DeleteInstanceModal
+          instance={deletingInstance}
+          onClose={() => setDeletingInstance(null)}
+          onDeleted={(id) => {
+            setInstances((prev) => prev.filter((i) => i.id !== id));
+            setDeletingInstance(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function DeleteInstanceModal({
+  instance,
+  onClose,
+  onDeleted,
+}: {
+  instance: InstanceWithMembers;
+  onClose: () => void;
+  onDeleted: (id: string) => void;
+}) {
+  const [typed, setTyped] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const matches = typed === instance.name;
+
+  async function handleDelete() {
+    if (!matches) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/instances/${instance.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "削除に失敗しました");
+      }
+      onDeleted(instance.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "削除に失敗しました");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/40 p-4">
+      <div className="flex w-full max-w-sm flex-col gap-3 rounded-lg bg-white p-4">
+        <h2 className="text-sm font-semibold text-red-700">インスタンスを削除</h2>
+        <p className="text-sm text-neutral-600">
+          「{instance.name}」を削除します。商品・注文履歴(売上データ)もすべて完全に削除され、元に戻せません。
+        </p>
+        <label className="flex flex-col gap-1 text-xs text-neutral-600">
+          確認のため、インスタンス名「{instance.name}」を入力してください
+          <input
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            autoFocus
+            className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
+          />
+        </label>
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="rounded px-3 py-1.5 text-sm text-neutral-500">
+            キャンセル
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={!matches || deleting}
+            className="rounded bg-red-600 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            {deleting ? "削除中..." : "削除する"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

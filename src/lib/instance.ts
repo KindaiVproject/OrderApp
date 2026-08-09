@@ -7,8 +7,9 @@ export const CURRENT_INSTANCE_COOKIE = "current_instance_id";
 
 // The bootstrap admin, always an admin regardless of AdminInvite rows —
 // so there's always at least one account that can invite other admins.
+// Set via ADMIN_EMAIL in .env / the deployment's environment variables.
 export function getAdminEmail() {
-  return process.env.ADMIN_EMAIL ?? "dolonaand@gmail.com";
+  return process.env.ADMIN_EMAIL ?? "";
 }
 
 export async function isAdminEmail(email: string | null | undefined): Promise<boolean> {

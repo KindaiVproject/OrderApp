@@ -1,6 +1,11 @@
 import { prisma } from "../src/lib/prisma";
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "dolonaand@gmail.com";
+function requireAdminEmail(): string {
+  const email = process.env.ADMIN_EMAIL;
+  if (!email) throw new Error("Set ADMIN_EMAIL in .env before seeding.");
+  return email;
+}
+const ADMIN_EMAIL = requireAdminEmail();
 
 async function upsertInstance(name: string, label: string, active: boolean, memberEmails: string[]) {
   const existing = await prisma.instance.findFirst({ where: { name } });

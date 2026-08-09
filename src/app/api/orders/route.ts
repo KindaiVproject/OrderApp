@@ -55,6 +55,7 @@ export async function POST(request: Request) {
     orderItems.push({
       productId: product.id,
       productName: product.name,
+      imageUrl: product.imageUrl,
       unitPrice: product.price,
       quantity,
     });

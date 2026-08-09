@@ -50,6 +50,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       orderItems.push({
         productId: product.id,
         productName: product.name,
+        imageUrl: product.imageUrl,
         unitPrice: product.price,
         quantity,
       });

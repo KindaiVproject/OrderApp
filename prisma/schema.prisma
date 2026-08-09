@@ -128,6 +128,7 @@ enum PaymentMethod {
 enum OrderStatus {
   WAITING
   COMPLETED
+  CANCELLED
 }
 
 model Order {
@@ -155,6 +156,7 @@ model OrderItem {
   // Snapshot of the product at order time, so CSV export/history stay
   // correct even if the product is later renamed, repriced, or deleted.
   productName String
+  imageUrl    String?
   unitPrice   Int
   quantity    Int
 

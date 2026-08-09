@@ -1,5 +1,6 @@
 import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
+import { formatJstDateTime } from "@/lib/datetime";
 import type { PaymentMethod } from "@generated/prisma/enums";
 
 const PAYMENT_LABELS: Record<PaymentMethod, string> = {
@@ -7,13 +8,6 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   PAYPAY: "PayPay",
   D_PAYMENT: "d払い",
 };
-
-function formatTimestamp(date: Date) {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}/${pad(date.getMonth() + 1)}/${pad(date.getDate())} ${pad(
-    date.getHours(),
-  )}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-}
 
 function csvEscape(value: string | number) {
   const str = String(value);
@@ -28,14 +22,14 @@ export async function GET() {
   if (!instance) return new Response("unauthorized", { status: 401 });
 
   const orders = await prisma.order.findMany({
-    where: { instanceId: instance.id },
+    where: { instanceId: instance.id, status: { not: "CANCELLED" } },
     include: { items: true },
     orderBy: { createdAt: "asc" },
   });
 
   const rows = ["ID(OrderDB),timestamp,支払い方法,商品名,点数,商品単体価格"];
   for (const order of orders) {
-    const timestamp = formatTimestamp(order.createdAt);
+    const timestamp = formatJstDateTime(order.createdAt);
     const payment = PAYMENT_LABELS[order.paymentMethod as PaymentMethod];
     for (const item of order.items) {
       rows.push(

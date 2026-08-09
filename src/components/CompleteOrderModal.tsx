@@ -38,10 +38,21 @@ export default function CompleteOrderModal({
         <h2 className="text-sm font-semibold text-neutral-800">提供完了にする</h2>
 
         <div className="rounded-md bg-neutral-50 p-2">
-          <ul className="flex flex-col">
+          <ul className="flex flex-col gap-1">
             {order.items.map((item) => (
-              <li key={item.id} className="text-sm">
-                {item.productName} × {item.quantity}
+              <li key={item.id} className="flex items-center gap-2 text-sm">
+                {item.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.imageUrl}
+                    alt=""
+                    draggable={false}
+                    className="h-8 w-8 rounded object-cover"
+                  />
+                )}
+                <span>
+                  {item.productName} × {item.quantity}
+                </span>
               </li>
             ))}
           </ul>

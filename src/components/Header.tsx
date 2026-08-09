@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/kitchen", label: "厨房" },
   { href: "/history", label: "注文履歴" },
   { href: "/products", label: "商品" },
+  { href: "/stats", label: "統計" },
 ];
 
 export default function Header({

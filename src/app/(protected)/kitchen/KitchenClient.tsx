@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ProductModel } from "@generated/prisma/models";
 import type { PaymentMethod } from "@generated/prisma/enums";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payment";
+import { formatJstTime } from "@/lib/datetime";
 import EditOrderModal, { type OrderWithItems as Order } from "@/components/EditOrderModal";
 import CompleteOrderModal from "@/components/CompleteOrderModal";
+import ConfirmModal from "@/components/ConfirmModal";
 
 const POLL_INTERVAL_MS = 2500;
 
@@ -20,12 +22,13 @@ export default function KitchenClient({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [completingOrder, setCompletingOrder] = useState<Order | null>(null);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [cancellingOrder, setCancellingOrder] = useState<Order | null>(null);
   const [busy, setBusy] = useState(false);
   const pollingPaused = useRef(false);
 
   useEffect(() => {
-    pollingPaused.current = editingOrder !== null || completingOrder !== null;
-  }, [editingOrder, completingOrder]);
+    pollingPaused.current = editingOrder !== null || completingOrder !== null || cancellingOrder !== null;
+  }, [editingOrder, completingOrder, cancellingOrder]);
 
   useEffect(() => {
     const timer = setInterval(async () => {
@@ -126,14 +129,25 @@ export default function KitchenClient({
               />
               <div className="flex-1">
                 <div className="flex flex-wrap items-center gap-x-2 text-xs text-neutral-500">
-                  <span>{new Date(order.createdAt).toLocaleTimeString("ja-JP")}</span>
+                  <span>{formatJstTime(new Date(order.createdAt))}</span>
                   <span>{PAYMENT_METHOD_LABELS[order.paymentMethod as PaymentMethod]}</span>
                   {order.customerNote && <span>特徴: {order.customerNote}</span>}
                 </div>
-                <ul className="mt-1 flex flex-col">
+                <ul className="mt-1 flex flex-col gap-1">
                   {order.items.map((item) => (
-                    <li key={item.id} className="text-sm">
-                      {item.productName} × {item.quantity}
+                    <li key={item.id} className="flex items-center gap-2 text-sm">
+                      {item.imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={item.imageUrl}
+                          alt=""
+                          draggable={false}
+                          className="h-8 w-8 rounded object-cover"
+                        />
+                      )}
+                      <span>
+                        {item.productName} × {item.quantity}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -152,6 +166,13 @@ export default function KitchenClient({
                     className="rounded px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100"
                   >
                     編集
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCancellingOrder(order)}
+                    className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                  >
+                    キャンセル
                   </button>
                 </div>
               </div>
@@ -180,6 +201,25 @@ export default function KitchenClient({
           onCompleted={(completed) => {
             setOrders((prev) => prev.filter((o) => o.id !== completed.id));
             setCompletingOrder(null);
+          }}
+        />
+      )}
+
+      {cancellingOrder && (
+        <ConfirmModal
+          title="注文をキャンセル"
+          message={`この注文(${cancellingOrder.items
+            .map((i) => `${i.productName} × ${i.quantity}`)
+            .join(", ")})をキャンセルしますか？`}
+          onClose={() => setCancellingOrder(null)}
+          onConfirm={async () => {
+            const res = await fetch(`/api/orders/${cancellingOrder.id}/cancel`, { method: "POST" });
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              throw new Error(data.error ?? "キャンセルに失敗しました");
+            }
+            setOrders((prev) => prev.filter((o) => o.id !== cancellingOrder.id));
+            setCancellingOrder(null);
           }}
         />
       )}

@@ -19,7 +19,13 @@ export async function POST(request: Request) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const imageUrl = await saveProductImage(buffer, file.type);
 
-  return NextResponse.json({ imageUrl });
+  try {
+    const imageUrl = await saveProductImage(buffer, file.type);
+    return NextResponse.json({ imageUrl });
+  } catch (err) {
+    console.error("saveProductImage failed", err);
+    const message = err instanceof Error ? err.message : "アップロードに失敗しました";
+    return NextResponse.json({ error: message }, { status: 502 });
+  }
 }

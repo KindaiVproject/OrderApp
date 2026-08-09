@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import type { InstanceModel, InstanceMemberModel, AdminInviteModel } from "@generated/prisma/models";
 import ConfirmModal from "@/components/ConfirmModal";
+import { parseEmailList } from "@/lib/emails";
 
 type InstanceWithMembers = InstanceModel & { members: InstanceMemberModel[] };
 
@@ -22,6 +23,7 @@ export default function AdminClient({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [inviteEmail, setInviteEmail] = useState<Record<string, string>>({});
+  const [inviteError, setInviteError] = useState<Record<string, string | null>>({});
   const [deletingInstance, setDeletingInstance] = useState<InstanceWithMembers | null>(null);
   const [duplicatingInstance, setDuplicatingInstance] = useState<InstanceWithMembers | null>(null);
   const [adminInvites, setAdminInvites] = useState(initialAdminInvites);
@@ -68,20 +70,35 @@ export default function AdminClient({
   }
 
   async function invite(instanceId: string) {
-    const email = (inviteEmail[instanceId] ?? "").trim();
-    if (!email) return;
-    const res = await fetch(`/api/admin/instances/${instanceId}/members`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    const data = await res.json();
-    if (res.ok) {
+    const emails = parseEmailList(inviteEmail[instanceId] ?? "");
+    if (emails.length === 0) return;
+    setInviteError((prev) => ({ ...prev, [instanceId]: null }));
+
+    const results = await Promise.all(
+      emails.map(async (email) => {
+        const res = await fetch(`/api/admin/instances/${instanceId}/members`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json().catch(() => ({}));
+        return { email, ok: res.ok, data };
+      }),
+    );
+
+    const succeeded = results.filter((r) => r.ok).map((r) => r.data);
+    if (succeeded.length > 0) {
       setInstances((prev) =>
-        prev.map((i) => (i.id === instanceId ? { ...i, members: [...i.members, data] } : i)),
+        prev.map((i) => (i.id === instanceId ? { ...i, members: [...i.members, ...succeeded] } : i)),
       );
-      setInviteEmail((prev) => ({ ...prev, [instanceId]: "" }));
     }
+
+    const failed = results.filter((r) => !r.ok);
+    setInviteEmail((prev) => ({ ...prev, [instanceId]: failed.map((f) => f.email).join(", ") }));
+    setInviteError((prev) => ({
+      ...prev,
+      [instanceId]: failed.length > 0 ? `招待に失敗: ${failed.map((f) => f.email).join(", ")}` : null,
+    }));
   }
 
   async function removeMember(instanceId: string, memberId: string) {
@@ -100,21 +117,32 @@ export default function AdminClient({
   async function inviteAdmin(e: React.FormEvent) {
     e.preventDefault();
     setAdminError(null);
-    const email = newAdminEmail.trim().toLowerCase();
-    if (!email) return;
-    try {
-      const res = await fetch("/api/admin/admins", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+    const emails = parseEmailList(newAdminEmail);
+    if (emails.length === 0) return;
+
+    const results = await Promise.all(
+      emails.map(async (email) => {
+        const res = await fetch("/api/admin/admins", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json().catch(() => ({}));
+        return { email, ok: res.ok, data };
+      }),
+    );
+
+    const succeeded = results.filter((r) => r.ok).map((r) => r.data);
+    if (succeeded.length > 0) {
+      setAdminInvites((prev) => {
+        const existingIds = new Set(prev.map((a) => a.id));
+        return [...prev, ...succeeded.filter((s) => !existingIds.has(s.id))];
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "招待に失敗しました");
-      setAdminInvites((prev) => (prev.some((a) => a.id === data.id) ? prev : [...prev, data]));
-      setNewAdminEmail("");
-    } catch (err) {
-      setAdminError(err instanceof Error ? err.message : "招待に失敗しました");
     }
+
+    const failed = results.filter((r) => !r.ok);
+    setNewAdminEmail(failed.map((f) => f.email).join(", "));
+    setAdminError(failed.length > 0 ? `招待に失敗: ${failed.map((f) => f.email).join(", ")}` : null);
   }
 
   return (
@@ -212,7 +240,7 @@ export default function AdminClient({
               <input
                 value={inviteEmail[instance.id] ?? ""}
                 onChange={(e) => setInviteEmail((prev) => ({ ...prev, [instance.id]: e.target.value }))}
-                placeholder="招待するGoogleアカウントのメール"
+                placeholder="招待するGoogleアカウントのメール(複数可: カンマ・スペース区切り)"
                 className="flex-1 rounded border border-neutral-300 px-2 py-1 text-xs"
               />
               <button
@@ -223,6 +251,9 @@ export default function AdminClient({
                 招待
               </button>
             </div>
+            {inviteError[instance.id] && (
+              <p className="mt-1 text-xs text-red-600">{inviteError[instance.id]}</p>
+            )}
           </li>
         ))}
         {instances.length === 0 && <p className="text-sm text-neutral-400">インスタンスがありません</p>}
@@ -236,11 +267,11 @@ export default function AdminClient({
           className="flex flex-wrap items-end gap-2 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm"
         >
           <label className="flex flex-1 flex-col gap-1 text-xs text-neutral-600">
-            招待するGoogleアカウントのメール
+            招待するGoogleアカウントのメール(複数可: カンマ・スペース区切り)
             <input
               value={newAdminEmail}
               onChange={(e) => setNewAdminEmail(e.target.value)}
-              placeholder="例: someone@gmail.com"
+              placeholder="例: a@gmail.com, b@gmail.com"
               className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
             />
           </label>

@@ -23,6 +23,7 @@ export default function AdminClient({
   const [busy, setBusy] = useState(false);
   const [inviteEmail, setInviteEmail] = useState<Record<string, string>>({});
   const [deletingInstance, setDeletingInstance] = useState<InstanceWithMembers | null>(null);
+  const [duplicatingInstance, setDuplicatingInstance] = useState<InstanceWithMembers | null>(null);
   const [adminInvites, setAdminInvites] = useState(initialAdminInvites);
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [adminError, setAdminError] = useState<string | null>(null);
@@ -174,6 +175,13 @@ export default function AdminClient({
                 </button>
                 <button
                   type="button"
+                  onClick={() => setDuplicatingInstance(instance)}
+                  className="rounded px-2 py-1 text-[10px] font-bold text-neutral-600 hover:bg-neutral-100"
+                >
+                  複製
+                </button>
+                <button
+                  type="button"
                   onClick={() => setDeletingInstance(instance)}
                   className="rounded px-2 py-1 text-[10px] font-bold text-red-600 hover:bg-red-50"
                 >
@@ -299,6 +307,99 @@ export default function AdminClient({
           }}
         />
       )}
+
+      {duplicatingInstance && (
+        <DuplicateInstanceModal
+          instance={duplicatingInstance}
+          onClose={() => setDuplicatingInstance(null)}
+          onDuplicated={(created) => {
+            setInstances((prev) => [...prev, created]);
+            setDuplicatingInstance(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function DuplicateInstanceModal({
+  instance,
+  onClose,
+  onDuplicated,
+}: {
+  instance: InstanceWithMembers;
+  onClose: () => void;
+  onDuplicated: (instance: InstanceWithMembers) => void;
+}) {
+  const [name, setName] = useState(`${instance.name} のコピー`);
+  const [label, setLabel] = useState(instance.label);
+  const [error, setError] = useState<string | null>(null);
+  const [duplicating, setDuplicating] = useState(false);
+
+  async function handleDuplicate() {
+    if (!name.trim()) {
+      setError("インスタンス名を入力してください");
+      return;
+    }
+    setDuplicating(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/instances/${instance.id}/duplicate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), label: label.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "複製に失敗しました");
+      onDuplicated(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "複製に失敗しました");
+    } finally {
+      setDuplicating(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/40 p-4">
+      <div className="flex w-full max-w-sm flex-col gap-3 rounded-lg bg-white p-4">
+        <h2 className="text-sm font-semibold text-neutral-800">インスタンスを複製</h2>
+        <p className="text-sm text-neutral-600">
+          「{instance.name}」の商品とメンバーを引き継いだ新しいインスタンスを作成します。注文履歴は引き継がれません。
+        </p>
+        <label className="flex flex-col gap-1 text-xs text-neutral-600">
+          新しいインスタンス名
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+            className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-neutral-600">
+          ラベル(ヘッダー表示/任意)
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
+          />
+        </label>
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="rounded px-3 py-1.5 text-sm text-neutral-500">
+            キャンセル
+          </button>
+          <button
+            type="button"
+            onClick={handleDuplicate}
+            disabled={duplicating}
+            className="rounded bg-neutral-900 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            {duplicating ? "複製中..." : "複製する"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

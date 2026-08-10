@@ -58,7 +58,7 @@ export default function EditOrderModal({
   }
 
   return (
-    <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4">
       <div className="flex max-h-[85vh] w-full max-w-md flex-col gap-3 overflow-y-auto rounded-lg bg-white p-4">
         <h2 className="text-sm font-semibold text-neutral-800">注文を編集</h2>
 

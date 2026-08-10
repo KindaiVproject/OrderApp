@@ -33,7 +33,7 @@ export default function CompleteOrderModal({
   }
 
   return (
-    <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4">
       <div className="flex w-full max-w-sm flex-col gap-3 rounded-lg bg-white p-4">
         <h2 className="text-sm font-semibold text-neutral-800">提供完了にする</h2>
 

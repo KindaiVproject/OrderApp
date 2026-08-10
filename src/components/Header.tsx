@@ -45,7 +45,7 @@ export default function Header({
   }, [pathname]);
 
   return (
-    <header className="flex flex-wrap items-center gap-2 border-b border-neutral-200 bg-white px-3 py-2 shadow-sm">
+    <header className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-neutral-200 bg-white px-3 py-2 shadow-sm">
       <span className="mr-1 flex items-center gap-1.5 text-sm font-semibold text-neutral-800">
         <Image src="/logo.svg" alt="" width={20} height={20} className="rounded-[5px]" />
         注文管理

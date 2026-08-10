@@ -7,7 +7,6 @@ import type { PaymentMethod } from "@generated/prisma/enums";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payment";
 import { formatJstDateTime } from "@/lib/datetime";
 import EditOrderModal, { type OrderWithItems as Order } from "@/components/EditOrderModal";
-import ConfirmModal from "@/components/ConfirmModal";
 
 const STATUS_LABELS: Record<string, string> = {
   WAITING: "待機中",
@@ -30,7 +29,6 @@ export default function HistoryClient({
 }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
-  const [cancellingOrder, setCancellingOrder] = useState<Order | null>(null);
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
@@ -84,22 +82,13 @@ export default function HistoryClient({
               <div className="mt-1 flex items-center justify-between">
                 <span className="text-sm font-semibold text-neutral-700">{total}円</span>
                 {!cancelled && (
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setEditingOrder(order)}
-                      className="rounded px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100"
-                    >
-                      編集
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCancellingOrder(order)}
-                      className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
-                    >
-                      キャンセル
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingOrder(order)}
+                    className="rounded px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100"
+                  >
+                    編集
+                  </button>
                 )}
               </div>
             </li>
@@ -116,26 +105,6 @@ export default function HistoryClient({
           onSaved={(updated) => {
             setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
             setEditingOrder(null);
-          }}
-        />
-      )}
-
-      {cancellingOrder && (
-        <ConfirmModal
-          title="注文をキャンセル"
-          message={`この注文(${cancellingOrder.items
-            .map((i) => `${i.productName} × ${i.quantity}`)
-            .join(", ")})をキャンセルしますか？`}
-          onClose={() => setCancellingOrder(null)}
-          onConfirm={async () => {
-            const res = await fetch(`/api/orders/${cancellingOrder.id}/cancel`, { method: "POST" });
-            if (!res.ok) {
-              const data = await res.json().catch(() => ({}));
-              throw new Error(data.error ?? "キャンセルに失敗しました");
-            }
-            const updated = await res.json();
-            setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));
-            setCancellingOrder(null);
           }}
         />
       )}

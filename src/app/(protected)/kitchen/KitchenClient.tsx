@@ -46,10 +46,14 @@ export default function KitchenClient({
   }, []);
 
   const requiredCounts = useMemo(() => {
-    const counts = new Map<string, number>();
+    const counts = new Map<string, { qty: number; imageUrl: string | null }>();
     for (const order of orders) {
       for (const item of order.items) {
-        counts.set(item.productName, (counts.get(item.productName) ?? 0) + item.quantity);
+        const existing = counts.get(item.productName);
+        counts.set(item.productName, {
+          qty: (existing?.qty ?? 0) + item.quantity,
+          imageUrl: existing?.imageUrl ?? item.imageUrl,
+        });
       }
     }
     return Array.from(counts.entries());
@@ -91,11 +95,22 @@ export default function KitchenClient({
         <div className="rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
           <h2 className="mb-2 text-sm font-semibold text-neutral-700">作るべき個数</h2>
           <div className="flex flex-wrap gap-2">
-            {requiredCounts.map(([name, qty]) => (
+            {requiredCounts.map(([name, { qty, imageUrl }]) => (
               <span
                 key={name}
-                className="rounded-full bg-neutral-100 px-2.5 py-1 text-xs font-medium text-neutral-700"
+                className="flex items-center gap-1.5 rounded-full bg-neutral-100 py-1 pl-1 pr-2.5 text-xs font-medium text-neutral-700"
               >
+                {imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={imageUrl}
+                    alt=""
+                    draggable={false}
+                    className="h-5 w-5 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="h-5 w-5 rounded-full bg-neutral-300" />
+                )}
                 {name} × {qty}
               </span>
             ))}

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isAdminEmail } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
+import { logEdit } from "@/lib/editLog";
+
+const ROLE_LABELS = { admin: "インスタンス管理者", member: "一般" } as const;
 
 export async function PATCH(
   request: Request,
@@ -33,6 +36,20 @@ export async function PATCH(
     data,
     include: { user: true },
   });
+
+  if (data.isInstanceAdmin !== undefined && data.isInstanceAdmin !== member.isInstanceAdmin) {
+    await logEdit({
+      instanceId: id,
+      entityType: "MEMBER",
+      entityId: memberId,
+      action: "EDIT",
+      summary: `${member.displayName ?? member.email} の権限: ${
+        ROLE_LABELS[member.isInstanceAdmin ? "admin" : "member"]
+      } → ${ROLE_LABELS[data.isInstanceAdmin ? "admin" : "member"]}`,
+      actorEmail: session?.user?.email,
+    });
+  }
+
   return NextResponse.json(updated);
 }
 

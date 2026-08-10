@@ -3,10 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 
-const NAV_ITEMS = [
+const BASE_NAV_ITEMS = [
   { href: "/order", label: "注文" },
   { href: "/kitchen", label: "厨房" },
   { href: "/history", label: "注文履歴" },
@@ -33,18 +33,27 @@ export default function Header({
     ready: false,
   });
 
+  const navItems = useMemo(
+    () => (canViewEditLog ? [...BASE_NAV_ITEMS, { href: "/edit-log", label: "編集履歴" }] : BASE_NAV_ITEMS),
+    [canViewEditLog],
+  );
+
   useEffect(() => {
     function measure() {
-      const activeItem = NAV_ITEMS.find((item) => item.href === pathname);
+      const activeItem = navItems.find((item) => item.href === pathname);
       const el = activeItem ? linkRefs.current[activeItem.href] : null;
       if (el) {
         setIndicator({ left: el.offsetLeft, width: el.offsetWidth, ready: true });
+      } else {
+        // No nav item matches the current page (e.g. /admin, /instances) —
+        // hide the indicator instead of leaving it stuck on the last match.
+        setIndicator((prev) => ({ ...prev, ready: false }));
       }
     }
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [pathname]);
+  }, [pathname, navItems]);
 
   return (
     <header className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-neutral-200 bg-white px-3 py-2 shadow-sm">
@@ -66,7 +75,7 @@ export default function Header({
           }`}
           style={{ left: indicator.left, width: indicator.width }}
         />
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const active = pathname === item.href;
           return (
             <Link
@@ -92,14 +101,6 @@ export default function Header({
         >
           切替
         </Link>
-        {canViewEditLog && (
-          <Link
-            href="/edit-log"
-            className="rounded px-2 py-1 text-xs font-medium text-neutral-500 hover:bg-neutral-100"
-          >
-            編集履歴
-          </Link>
-        )}
         {isAdmin && (
           <Link
             href="/admin"

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import type { ProductModel as Product } from "@generated/prisma/models";
 import ProductImagePicker from "@/components/ProductImagePicker";
-import ConfirmModal from "@/components/ConfirmModal";
 
 export default function ProductsClient({ initialProducts }: { initialProducts: Product[] }) {
   const [products, setProducts] = useState(initialProducts);
@@ -144,11 +143,10 @@ export default function ProductsClient({ initialProducts }: { initialProducts: P
       )}
 
       {deletingProduct && (
-        <ConfirmModal
-          title="商品を削除"
-          message={`「${deletingProduct.name}」を削除しますか？(過去の注文履歴には影響しません)`}
+        <DeleteProductModal
+          product={deletingProduct}
           onClose={() => setDeletingProduct(null)}
-          onConfirm={async () => {
+          onDeleted={async () => {
             await handleArchive(deletingProduct.id);
             setDeletingProduct(null);
           }}
@@ -240,6 +238,70 @@ function EditProductModal({
             className="rounded bg-neutral-900 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-40"
           >
             保存
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteProductModal({
+  product,
+  onClose,
+  onDeleted,
+}: {
+  product: Product;
+  onClose: () => void;
+  onDeleted: () => Promise<void>;
+}) {
+  const [typed, setTyped] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const matches = typed === product.name;
+
+  async function handleDelete() {
+    if (!matches) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await onDeleted();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "削除に失敗しました");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4">
+      <div className="flex w-full max-w-sm flex-col gap-3 rounded-lg bg-white p-4">
+        <h2 className="text-sm font-semibold text-red-700">商品を削除</h2>
+        <p className="text-sm text-neutral-600">
+          「{product.name}」を削除します。過去の注文履歴には影響しません。
+        </p>
+        <label className="flex flex-col gap-1 text-xs text-neutral-600">
+          確認のため、商品名「{product.name}」を入力してください
+          <input
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            autoFocus
+            className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
+          />
+        </label>
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} className="rounded px-3 py-1.5 text-sm text-neutral-500">
+            キャンセル
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={!matches || deleting}
+            className="rounded bg-red-600 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            {deleting ? "削除中..." : "削除する"}
           </button>
         </div>
       </div>

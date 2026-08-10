@@ -25,6 +25,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     where: { instanceId_email: { instanceId: id, email } },
     update: {},
     create: { instanceId: id, email, userId: existingUser?.id },
+    include: { user: true },
   });
 
   return NextResponse.json(member, { status: 201 });

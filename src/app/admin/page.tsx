@@ -6,7 +6,7 @@ export default async function AdminPage() {
   await requireAdmin();
   const [instances, adminInvites] = await Promise.all([
     prisma.instance.findMany({
-      include: { members: true },
+      include: { members: { include: { user: true }, orderBy: { createdAt: "asc" } } },
       orderBy: { createdAt: "asc" },
     }),
     prisma.adminInvite.findMany({ orderBy: { createdAt: "asc" } }),

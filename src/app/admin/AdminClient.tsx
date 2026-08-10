@@ -2,11 +2,23 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import type { InstanceModel, InstanceMemberModel, AdminInviteModel } from "@generated/prisma/models";
+import type {
+  InstanceModel,
+  InstanceMemberModel,
+  AdminInviteModel,
+  UserModel,
+} from "@generated/prisma/models";
 import ConfirmModal from "@/components/ConfirmModal";
 import { parseEmailList } from "@/lib/emails";
 
-type InstanceWithMembers = InstanceModel & { members: InstanceMemberModel[] };
+type MemberWithUser = InstanceMemberModel & { user: UserModel | null };
+type InstanceWithMembers = InstanceModel & { members: MemberWithUser[] };
+
+// displayName (admin-set) wins, then the Google account name (once signed
+// in), then the raw email as a last resort.
+function memberDisplayName(member: MemberWithUser) {
+  return member.displayName ?? member.user?.name ?? member.email;
+}
 
 export default function AdminClient({
   initialInstances,
@@ -30,6 +42,40 @@ export default function AdminClient({
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [adminError, setAdminError] = useState<string | null>(null);
   const [removingAdmin, setRemovingAdmin] = useState<AdminInviteModel | null>(null);
+  const [expandedInstances, setExpandedInstances] = useState<Set<string>>(new Set());
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [editingDisplayName, setEditingDisplayName] = useState("");
+
+  function toggleExpanded(instanceId: string) {
+    setExpandedInstances((prev) => {
+      const next = new Set(prev);
+      if (next.has(instanceId)) next.delete(instanceId);
+      else next.add(instanceId);
+      return next;
+    });
+  }
+
+  function startEditingDisplayName(member: MemberWithUser) {
+    setEditingMemberId(member.id);
+    setEditingDisplayName(member.displayName ?? "");
+  }
+
+  async function saveDisplayName(instanceId: string, memberId: string) {
+    const res = await fetch(`/api/admin/instances/${instanceId}/members/${memberId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ displayName: editingDisplayName.trim() || null }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setInstances((prev) =>
+        prev.map((i) =>
+          i.id === instanceId ? { ...i, members: i.members.map((m) => (m.id === memberId ? data : m)) } : i,
+        ),
+      );
+      setEditingMemberId(null);
+    }
+  }
 
   async function createInstance(e: React.FormEvent) {
     e.preventDefault();
@@ -114,7 +160,7 @@ export default function AdminClient({
     }
   }
 
-  async function toggleInstanceAdmin(instanceId: string, member: InstanceMemberModel) {
+  async function toggleInstanceAdmin(instanceId: string, member: MemberWithUser) {
     const res = await fetch(`/api/admin/instances/${instanceId}/members/${member.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -236,54 +282,111 @@ export default function AdminClient({
               </div>
             </div>
 
-            <ul className="mt-2 flex flex-col gap-1">
-              {instance.members.map((member) => (
-                <li key={member.id} className="flex items-center justify-between text-xs text-neutral-600">
-                  <span>{member.email}</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => toggleInstanceAdmin(instance.id, member)}
-                      className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                        member.isInstanceAdmin
-                          ? "bg-blue-100 text-blue-700"
-                          : "bg-neutral-100 text-neutral-500"
-                      }`}
-                    >
-                      {member.isInstanceAdmin ? "インスタンス管理者" : "一般"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeMember(instance.id, member.id)}
-                      className="text-red-500 hover:underline"
-                    >
-                      削除
-                    </button>
-                  </div>
-                </li>
-              ))}
-              {instance.members.length === 0 && (
-                <li className="text-xs text-neutral-400">メンバーがいません</li>
-              )}
-            </ul>
+            <button
+              type="button"
+              onClick={() => toggleExpanded(instance.id)}
+              className="mt-2 flex w-full items-center gap-1 text-xs font-medium text-neutral-500 hover:text-neutral-700"
+            >
+              <span className={`transition-transform ${expandedInstances.has(instance.id) ? "rotate-90" : ""}`}>
+                ▶
+              </span>
+              メンバー ({instance.members.length})
+            </button>
 
-            <div className="mt-2 flex gap-2">
-              <input
-                value={inviteEmail[instance.id] ?? ""}
-                onChange={(e) => setInviteEmail((prev) => ({ ...prev, [instance.id]: e.target.value }))}
-                placeholder="招待するGoogleアカウントのメール(複数可: カンマ・スペース区切り)"
-                className="flex-1 rounded border border-neutral-300 px-2 py-1 text-xs"
-              />
-              <button
-                type="button"
-                onClick={() => invite(instance.id)}
-                className="rounded bg-neutral-900 px-2 py-1 text-xs font-medium text-white"
-              >
-                招待
-              </button>
-            </div>
-            {inviteError[instance.id] && (
-              <p className="mt-1 text-xs text-red-600">{inviteError[instance.id]}</p>
+            {expandedInstances.has(instance.id) && (
+              <>
+                <ul className="mt-2 flex flex-col gap-1">
+                  {instance.members.map((member) => (
+                    <li key={member.id} className="flex items-center justify-between text-xs text-neutral-600">
+                      {editingMemberId === member.id ? (
+                        <div className="flex flex-1 items-center gap-1">
+                          <input
+                            value={editingDisplayName}
+                            onChange={(e) => setEditingDisplayName(e.target.value)}
+                            placeholder={member.user?.name ?? member.email}
+                            autoFocus
+                            className="flex-1 rounded border border-neutral-300 px-1.5 py-0.5 text-xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => saveDisplayName(instance.id, member.id)}
+                            className="text-blue-600 hover:underline"
+                          >
+                            保存
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingMemberId(null)}
+                            className="text-neutral-400 hover:underline"
+                          >
+                            キャンセル
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => startEditingDisplayName(member)}
+                          className="flex flex-col items-start text-left hover:underline"
+                        >
+                          <span className="flex items-center gap-1">
+                            {memberDisplayName(member)}
+                            {member.userId && (
+                              <span className="rounded bg-green-100 px-1 py-0.5 text-[9px] font-bold text-green-700">
+                                認証済み
+                              </span>
+                            )}
+                          </span>
+                          {memberDisplayName(member) !== member.email && (
+                            <span className="text-[10px] text-neutral-400">{member.email}</span>
+                          )}
+                        </button>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleInstanceAdmin(instance.id, member)}
+                          className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                            member.isInstanceAdmin
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-neutral-100 text-neutral-500"
+                          }`}
+                        >
+                          {member.isInstanceAdmin ? "インスタンス管理者" : "一般"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeMember(instance.id, member.id)}
+                          className="text-red-500 hover:underline"
+                        >
+                          削除
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                  {instance.members.length === 0 && (
+                    <li className="text-xs text-neutral-400">メンバーがいません</li>
+                  )}
+                </ul>
+
+                <div className="mt-2 flex gap-2">
+                  <input
+                    value={inviteEmail[instance.id] ?? ""}
+                    onChange={(e) => setInviteEmail((prev) => ({ ...prev, [instance.id]: e.target.value }))}
+                    placeholder="招待するGoogleアカウントのメール(複数可: カンマ・スペース区切り)"
+                    className="flex-1 rounded border border-neutral-300 px-2 py-1 text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => invite(instance.id)}
+                    className="rounded bg-neutral-900 px-2 py-1 text-xs font-medium text-white"
+                  >
+                    招待
+                  </button>
+                </div>
+                {inviteError[instance.id] && (
+                  <p className="mt-1 text-xs text-red-600">{inviteError[instance.id]}</p>
+                )}
+              </>
             )}
           </li>
         ))}

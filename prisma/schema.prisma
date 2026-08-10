@@ -101,6 +101,10 @@ model InstanceMember {
   // to whatever the global Admin (ADMIN_EMAIL/AdminInvite) can already see.
   // Managed by a global Admin from /admin, same as invites.
   isInstanceAdmin Boolean  @default(false)
+  // Admin-set override shown instead of the Google account name/email —
+  // lets a member be labeled before they've ever signed in. Display
+  // priority: displayName -> user.name (once signed in) -> email.
+  displayName     String?
   createdAt       DateTime @default(now())
 
   @@unique([instanceId, email])

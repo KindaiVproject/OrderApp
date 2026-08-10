@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/auth";
 import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { isValidProductImagePath } from "@/lib/uploads";
+import { logEdit } from "@/lib/editLog";
 
 export async function GET() {
   const instance = await getCurrentInstance();
@@ -17,6 +19,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const instance = await getCurrentInstance();
   if (!instance) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const session = await auth();
 
   const body = await request.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
@@ -47,5 +50,15 @@ export async function POST(request: Request) {
       sortOrder: (maxSort._max.sortOrder ?? 0) + 1,
     },
   });
+
+  await logEdit({
+    instanceId: instance.id,
+    entityType: "PRODUCT",
+    entityId: product.id,
+    action: "CREATE",
+    summary: `商品「${name}」を追加(${price}円)`,
+    actorEmail: session?.user?.email,
+  });
+
   return NextResponse.json(product, { status: 201 });
 }

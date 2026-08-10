@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 
-export type EditLogEntityType = "ORDER" | "PRODUCT";
-export type EditLogAction = "EDIT" | "CANCEL" | "COMPLETE" | "DELETE";
+export type EditLogEntityType = "ORDER" | "PRODUCT" | "MEMBER";
+export type EditLogAction = "CREATE" | "EDIT" | "CANCEL" | "COMPLETE" | "DELETE" | "INVITE";
 
 export async function logEdit(params: {
   instanceId: string;

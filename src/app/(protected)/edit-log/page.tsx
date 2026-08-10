@@ -7,20 +7,25 @@ import { formatJstDateTime } from "@/lib/datetime";
 const ENTITY_LABELS: Record<string, string> = {
   ORDER: "注文",
   PRODUCT: "商品",
+  MEMBER: "メンバー",
 };
 
 const ACTION_LABELS: Record<string, string> = {
+  CREATE: "新規登録",
   EDIT: "編集",
   CANCEL: "キャンセル",
   COMPLETE: "完了",
   DELETE: "削除",
+  INVITE: "招待",
 };
 
 const ACTION_STYLES: Record<string, string> = {
+  CREATE: "bg-teal-100 text-teal-700",
   EDIT: "bg-blue-100 text-blue-700",
   CANCEL: "bg-red-100 text-red-700",
   COMPLETE: "bg-green-100 text-green-700",
   DELETE: "bg-neutral-200 text-neutral-600",
+  INVITE: "bg-purple-100 text-purple-700",
 };
 
 export default async function EditLogPage() {
@@ -39,7 +44,7 @@ export default async function EditLogPage() {
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
       <h1 className="text-base font-semibold text-neutral-800">編集履歴</h1>
       <p className="text-xs text-neutral-500">
-        注文・商品の編集/キャンセル/完了/削除の記録です。インスタンス管理者・管理者のみ閲覧できます。
+        注文・商品の登録/編集/キャンセル/完了/削除、メンバー招待の記録です。インスタンス管理者・管理者のみ閲覧できます。
       </p>
 
       <ul className="flex flex-col gap-2">

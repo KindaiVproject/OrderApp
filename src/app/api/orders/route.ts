@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/auth";
 import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
+import { logEdit } from "@/lib/editLog";
 import type { OrderStatus, PaymentMethod } from "@generated/prisma/enums";
 
 const PAYMENT_METHODS: PaymentMethod[] = ["CASH", "PAYPAY", "D_PAYMENT"];
@@ -26,6 +28,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const instance = await getCurrentInstance();
   if (!instance) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const session = await auth();
 
   const body = await request.json().catch(() => null);
   const items = Array.isArray(body?.items) ? body.items : [];
@@ -69,6 +72,15 @@ export async function POST(request: Request) {
       items: { create: orderItems },
     },
     include: { items: true },
+  });
+
+  await logEdit({
+    instanceId: instance.id,
+    entityType: "ORDER",
+    entityId: order.id,
+    action: "CREATE",
+    summary: `新規注文: ${orderItems.map((i) => `${i.productName}×${i.quantity}`).join(", ")}`,
+    actorEmail: session?.user?.email,
   });
 
   return NextResponse.json(order, { status: 201 });

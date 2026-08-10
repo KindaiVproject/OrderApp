@@ -295,70 +295,76 @@ export default function AdminClient({
 
             {expandedInstances.has(instance.id) && (
               <>
-                <ul className="mt-2 flex flex-col gap-1">
+                <ul className="mt-2 flex flex-col gap-2">
                   {instance.members.map((member) => (
-                    <li key={member.id} className="flex items-center justify-between text-xs text-neutral-600">
-                      {editingMemberId === member.id ? (
-                        <div className="flex flex-1 items-center gap-1">
-                          <input
-                            value={editingDisplayName}
-                            onChange={(e) => setEditingDisplayName(e.target.value)}
-                            placeholder={member.user?.name ?? member.email}
-                            autoFocus
-                            className="flex-1 rounded border border-neutral-300 px-1.5 py-0.5 text-xs"
-                          />
+                    <li key={member.id} className="rounded-md border border-neutral-200 bg-neutral-50 p-2">
+                      <div className="text-xs text-neutral-600">
+                        {editingMemberId === member.id ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              value={editingDisplayName}
+                              onChange={(e) => setEditingDisplayName(e.target.value)}
+                              placeholder={member.user?.name ?? member.email}
+                              autoFocus
+                              className="flex-1 rounded border border-neutral-300 px-1.5 py-0.5 text-xs"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => saveDisplayName(instance.id, member.id)}
+                              className="text-blue-600 hover:underline"
+                            >
+                              保存
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingMemberId(null)}
+                              className="text-neutral-400 hover:underline"
+                            >
+                              キャンセル
+                            </button>
+                          </div>
+                        ) : (
                           <button
                             type="button"
-                            onClick={() => saveDisplayName(instance.id, member.id)}
-                            className="text-blue-600 hover:underline"
+                            onClick={() => startEditingDisplayName(member)}
+                            className="flex flex-col items-start text-left hover:underline"
                           >
-                            保存
+                            <span className="flex items-center gap-1">
+                              {memberDisplayName(member)}
+                              {member.userId && (
+                                <span className="rounded bg-green-100 px-1 py-0.5 text-[9px] font-bold text-green-700">
+                                  認証済み
+                                </span>
+                              )}
+                            </span>
+                            {memberDisplayName(member) !== member.email && (
+                              <span className="text-[10px] text-neutral-400">{member.email}</span>
+                            )}
                           </button>
+                        )}
+                      </div>
+
+                      <div className="mt-2 flex items-center justify-end gap-3 border-t border-neutral-200 pt-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[9px] text-neutral-400">権限</span>
                           <button
                             type="button"
-                            onClick={() => setEditingMemberId(null)}
-                            className="text-neutral-400 hover:underline"
+                            onClick={() => toggleInstanceAdmin(instance.id, member)}
+                            className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                              member.isInstanceAdmin
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-neutral-200 text-neutral-500"
+                            }`}
                           >
-                            キャンセル
+                            {member.isInstanceAdmin ? "インスタンス管理者" : "一般"}
                           </button>
                         </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => startEditingDisplayName(member)}
-                          className="flex flex-col items-start text-left hover:underline"
-                        >
-                          <span className="flex items-center gap-1">
-                            {memberDisplayName(member)}
-                            {member.userId && (
-                              <span className="rounded bg-green-100 px-1 py-0.5 text-[9px] font-bold text-green-700">
-                                認証済み
-                              </span>
-                            )}
-                          </span>
-                          {memberDisplayName(member) !== member.email && (
-                            <span className="text-[10px] text-neutral-400">{member.email}</span>
-                          )}
-                        </button>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => toggleInstanceAdmin(instance.id, member)}
-                          className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-                            member.isInstanceAdmin
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-neutral-100 text-neutral-500"
-                          }`}
-                        >
-                          {member.isInstanceAdmin ? "インスタンス管理者" : "一般"}
-                        </button>
                         <button
                           type="button"
                           onClick={() => removeMember(instance.id, member.id)}
-                          className="text-red-500 hover:underline"
+                          className="rounded px-1.5 py-0.5 text-[10px] font-bold text-red-600 hover:bg-red-50"
                         >
-                          削除
+                          このメンバーを削除
                         </button>
                       </div>
                     </li>

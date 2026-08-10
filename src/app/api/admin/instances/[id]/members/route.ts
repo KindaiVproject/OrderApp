@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isAdminEmail } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
+import { logEdit } from "@/lib/editLog";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -20,6 +21,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!instance) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
+  const existingMember = await prisma.instanceMember.findUnique({
+    where: { instanceId_email: { instanceId: id, email } },
+  });
 
   const member = await prisma.instanceMember.upsert({
     where: { instanceId_email: { instanceId: id, email } },
@@ -27,6 +31,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     create: { instanceId: id, email, userId: existingUser?.id },
     include: { user: true },
   });
+
+  if (!existingMember) {
+    const session = await auth();
+    await logEdit({
+      instanceId: id,
+      entityType: "MEMBER",
+      entityId: member.id,
+      action: "INVITE",
+      summary: `${email} を招待`,
+      actorEmail: session?.user?.email,
+    });
+  }
 
   return NextResponse.json(member, { status: 201 });
 }

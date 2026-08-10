@@ -18,10 +18,12 @@ export default function Header({
   instanceName,
   instanceLabel,
   isAdmin,
+  canViewEditLog,
 }: {
   instanceName: string;
   instanceLabel: string;
   isAdmin: boolean;
+  canViewEditLog: boolean;
 }) {
   const pathname = usePathname();
   const linkRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
@@ -90,6 +92,14 @@ export default function Header({
         >
           切替
         </Link>
+        {canViewEditLog && (
+          <Link
+            href="/edit-log"
+            className="rounded px-2 py-1 text-xs font-medium text-neutral-500 hover:bg-neutral-100"
+          >
+            編集履歴
+          </Link>
+        )}
         {isAdmin && (
           <Link
             href="/admin"

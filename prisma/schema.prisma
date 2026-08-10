@@ -85,6 +85,7 @@ model Instance {
   members  InstanceMember[]
   products Product[]
   orders   Order[]
+  editLogs EditLog[]
 }
 
 model InstanceMember {
@@ -96,9 +97,29 @@ model InstanceMember {
   email      String
   userId     String?
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  createdAt  DateTime @default(now())
+  // Per-instance admin: can view this instance's edit history, in addition
+  // to whatever the global Admin (ADMIN_EMAIL/AdminInvite) can already see.
+  // Managed by a global Admin from /admin, same as invites.
+  isInstanceAdmin Boolean  @default(false)
+  createdAt       DateTime @default(now())
 
   @@unique([instanceId, email])
+}
+
+// Audit trail for edits to orders/products — who changed what, when.
+// Visible only to instance admins and global admins (src/lib/instance.ts).
+model EditLog {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  entityType String // "ORDER" | "PRODUCT"
+  entityId   String
+  action     String // "EDIT" | "CANCEL" | "COMPLETE" | "DELETE"
+  summary    String
+  actorEmail String
+  createdAt  DateTime @default(now())
+
+  @@index([instanceId, createdAt])
 }
 
 model Product {

@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/auth";
 import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
+import { logEdit } from "@/lib/editLog";
+import { PAYMENT_METHOD_LABELS } from "@/lib/payment";
 import type { PaymentMethod } from "@generated/prisma/enums";
 
 const PAYMENT_METHODS: PaymentMethod[] = ["CASH", "PAYPAY", "D_PAYMENT"];
+
+function itemsSummary(items: { productName: string; quantity: number }[]) {
+  return items.map((i) => `${i.productName}×${i.quantity}`).join(", ");
+}
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const instance = await getCurrentInstance();
@@ -22,8 +29,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const instance = await getCurrentInstance();
   if (!instance) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await params;
+  const session = await auth();
 
-  const existing = await prisma.order.findFirst({ where: { id, instanceId: instance.id } });
+  const existing = await prisma.order.findFirst({
+    where: { id, instanceId: instance.id },
+    include: { items: true },
+  });
   if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const body = await request.json().catch(() => null);
@@ -77,6 +88,32 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       include: { items: true },
     });
   });
+
+  const changes: string[] = [];
+  if (body?.customerNote !== undefined) {
+    const newNote = String(body.customerNote).trim() || null;
+    if (newNote !== existing.customerNote) {
+      changes.push(`客の特徴: 「${existing.customerNote ?? ""}」→「${newNote ?? ""}」`);
+    }
+  }
+  if (body?.paymentMethod !== undefined && body.paymentMethod !== existing.paymentMethod) {
+    changes.push(
+      `支払い方法: ${PAYMENT_METHOD_LABELS[existing.paymentMethod as PaymentMethod]} → ${PAYMENT_METHOD_LABELS[body.paymentMethod as PaymentMethod]}`,
+    );
+  }
+  if (itemsUpdate) {
+    changes.push(`商品: ${itemsSummary(existing.items)} → ${itemsSummary(itemsUpdate)}`);
+  }
+  if (changes.length > 0) {
+    await logEdit({
+      instanceId: instance.id,
+      entityType: "ORDER",
+      entityId: id,
+      action: "EDIT",
+      summary: changes.join(" / "),
+      actorEmail: session?.user?.email,
+    });
+  }
 
   return NextResponse.json(order);
 }

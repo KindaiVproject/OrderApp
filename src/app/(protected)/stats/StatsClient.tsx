@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import BarChart, { type BarDatum } from "@/components/BarChart";
+import BarChart, { QUANTITY_COLOR, type BarDatum } from "@/components/BarChart";
 import { formatJstDateShort } from "@/lib/datetime";
 import type { DailyTotal } from "@/lib/stats";
 
@@ -15,6 +15,7 @@ export default function StatsClient({
   const days = useMemo(() => dailyTotals.map((d) => d.date), [dailyTotals]);
   const [selectedDay, setSelectedDay] = useState(days[days.length - 1] ?? "");
   const [showDailyTable, setShowDailyTable] = useState(false);
+  const [showQuantityTable, setShowQuantityTable] = useState(false);
   const [showHourlyTable, setShowHourlyTable] = useState(false);
 
   const dailyBars: BarDatum[] = dailyTotals.map((d) => ({
@@ -23,7 +24,14 @@ export default function StatsClient({
     tooltipTitle: `${formatJstDateShort(d.date)}(${d.count}件)`,
   }));
 
+  const quantityBars: BarDatum[] = dailyTotals.map((d) => ({
+    label: formatJstDateShort(d.date),
+    value: d.quantity,
+    tooltipTitle: `${formatJstDateShort(d.date)}(${d.count}件)`,
+  }));
+
   const grandTotal = dailyTotals.reduce((sum, d) => sum + d.total, 0);
+  const grandQuantity = dailyTotals.reduce((sum, d) => sum + d.quantity, 0);
 
   const hourlyBars: BarDatum[] = useMemo(() => {
     const hours = hourlyByDay[selectedDay] ?? [];
@@ -87,6 +95,53 @@ export default function StatsClient({
                       <td className="py-1">{d.date}</td>
                       <td className="py-1">{d.count}件</td>
                       <td className="py-1">{d.total.toLocaleString("ja-JP")}円</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-neutral-700">日毎の販売個数</h2>
+          <span className="text-xs text-neutral-500">
+            合計 <span className="font-semibold text-neutral-800">{grandQuantity.toLocaleString("ja-JP")}個</span>
+          </span>
+        </div>
+        {dailyTotals.length === 0 ? (
+          <p className="text-sm text-neutral-400">まだ売上データがありません</p>
+        ) : (
+          <>
+            <BarChart
+              data={quantityBars}
+              color={QUANTITY_COLOR}
+              formatValue={(v) => `${v.toLocaleString("ja-JP")}個`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowQuantityTable((v) => !v)}
+              className="self-start text-xs text-neutral-500 underline"
+            >
+              {showQuantityTable ? "表を隠す" : "表で見る"}
+            </button>
+            {showQuantityTable && (
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="text-neutral-500">
+                    <th className="py-1 font-medium">日付</th>
+                    <th className="py-1 font-medium">件数</th>
+                    <th className="py-1 font-medium">個数</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dailyTotals.map((d) => (
+                    <tr key={d.date} className="border-t border-neutral-100">
+                      <td className="py-1">{d.date}</td>
+                      <td className="py-1">{d.count}件</td>
+                      <td className="py-1">{d.quantity.toLocaleString("ja-JP")}個</td>
                     </tr>
                   ))}
                 </tbody>

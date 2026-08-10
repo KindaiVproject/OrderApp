@@ -4,6 +4,10 @@ import { useState } from "react";
 
 // Sequential blue, palette step 450 — single-series magnitude, no legend needed.
 const BAR_COLOR = "#2a78d6";
+// When a second magnitude series appears alongside the first (e.g. quantity
+// next to revenue), it takes the next categorical slot's hue as its own
+// one-hue sequential ramp, per the palette's sequential-hue rule.
+export const QUANTITY_COLOR = "#eb6834";
 
 function niceMax(value: number): number {
   if (value <= 0) return 100;
@@ -27,10 +31,12 @@ export default function BarChart({
   data,
   height = 160,
   formatValue = (v: number) => `${v.toLocaleString("ja-JP")}円`,
+  color = BAR_COLOR,
 }: {
   data: BarDatum[];
   height?: number;
   formatValue?: (value: number) => string;
+  color?: string;
 }) {
   const [hovered, setHovered] = useState<number | null>(null);
   const max = niceMax(Math.max(...data.map((d) => d.value), 0));
@@ -74,7 +80,7 @@ export default function BarChart({
                 className="w-full max-w-[22px] rounded-t-[4px] transition-opacity"
                 style={{
                   height: `${Math.max((d.value / max) * 100, d.value > 0 ? 2 : 0)}%`,
-                  backgroundColor: BAR_COLOR,
+                  backgroundColor: color,
                   opacity: hovered === i ? 0.75 : 1,
                 }}
               />

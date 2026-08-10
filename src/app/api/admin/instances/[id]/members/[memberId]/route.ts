@@ -3,6 +3,31 @@ import { auth } from "@/auth";
 import { isAdminEmail } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string; memberId: string }> },
+) {
+  const session = await auth();
+  if (!(await isAdminEmail(session?.user?.email))) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 403 });
+  }
+  const { id, memberId } = await params;
+
+  const body = await request.json().catch(() => null);
+  if (typeof body?.isInstanceAdmin !== "boolean") {
+    return NextResponse.json({ error: "isInstanceAdminを指定してください" }, { status: 400 });
+  }
+
+  const member = await prisma.instanceMember.findFirst({ where: { id: memberId, instanceId: id } });
+  if (!member) return NextResponse.json({ error: "not found" }, { status: 404 });
+
+  const updated = await prisma.instanceMember.update({
+    where: { id: memberId },
+    data: { isInstanceAdmin: body.isInstanceAdmin },
+  });
+  return NextResponse.json(updated);
+}
+
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string; memberId: string }> },

@@ -114,6 +114,24 @@ export default function AdminClient({
     }
   }
 
+  async function toggleInstanceAdmin(instanceId: string, member: InstanceMemberModel) {
+    const res = await fetch(`/api/admin/instances/${instanceId}/members/${member.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isInstanceAdmin: !member.isInstanceAdmin }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setInstances((prev) =>
+        prev.map((i) =>
+          i.id === instanceId
+            ? { ...i, members: i.members.map((m) => (m.id === member.id ? data : m)) }
+            : i,
+        ),
+      );
+    }
+  }
+
   async function inviteAdmin(e: React.FormEvent) {
     e.preventDefault();
     setAdminError(null);
@@ -222,13 +240,26 @@ export default function AdminClient({
               {instance.members.map((member) => (
                 <li key={member.id} className="flex items-center justify-between text-xs text-neutral-600">
                   <span>{member.email}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeMember(instance.id, member.id)}
-                    className="text-red-500 hover:underline"
-                  >
-                    削除
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleInstanceAdmin(instance.id, member)}
+                      className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                        member.isInstanceAdmin
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-neutral-100 text-neutral-500"
+                      }`}
+                    >
+                      {member.isInstanceAdmin ? "インスタンス管理者" : "一般"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeMember(instance.id, member.id)}
+                      className="text-red-500 hover:underline"
+                    >
+                      削除
+                    </button>
+                  </div>
                 </li>
               ))}
               {instance.members.length === 0 && (

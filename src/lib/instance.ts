@@ -64,3 +64,17 @@ export async function requireCurrentInstance() {
   if (!instance) redirect("/instances");
   return instance;
 }
+
+// Global admins can see every instance's edit history; an instance's own
+// members only if flagged isInstanceAdmin for that specific instance.
+export async function isInstanceAdmin(
+  instanceId: string,
+  email: string | null | undefined,
+): Promise<boolean> {
+  if (!email) return false;
+  if (await isAdminEmail(email)) return true;
+  const member = await prisma.instanceMember.findUnique({
+    where: { instanceId_email: { instanceId, email } },
+  });
+  return member?.isInstanceAdmin ?? false;
+}

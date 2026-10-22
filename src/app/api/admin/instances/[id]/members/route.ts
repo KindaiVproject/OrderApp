@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { isAdminEmail } from "@/lib/instance";
+import { canManageMembers } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-  if (!(await isAdminEmail(session?.user?.email))) {
+  const { id } = await params;
+  if (!(await canManageMembers(id, session?.user?.email))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 403 });
   }
-  const { id } = await params;
 
   const body = await request.json().catch(() => null);
   const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
@@ -33,7 +33,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   });
 
   if (!existingMember) {
-    const session = await auth();
     await logEdit({
       instanceId: id,
       entityType: "MEMBER",

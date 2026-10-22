@@ -6,7 +6,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
   const instance = await requireCurrentInstance();
   const session = await auth();
   const isAdmin = await isAdminEmail(session?.user?.email);
-  const canViewEditLog = isAdmin || (await isInstanceAdmin(instance.id, session?.user?.email));
+  const canManageInstance = isAdmin || (await isInstanceAdmin(instance.id, session?.user?.email));
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -14,7 +14,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
         instanceName={instance.name}
         instanceLabel={instance.label}
         isAdmin={isAdmin}
-        canViewEditLog={canViewEditLog}
+        canManageInstance={canManageInstance}
       />
       <main className="flex flex-1 flex-col">{children}</main>
     </div>

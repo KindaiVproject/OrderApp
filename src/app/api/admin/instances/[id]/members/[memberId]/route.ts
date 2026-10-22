@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { isAdminEmail } from "@/lib/instance";
+import { canManageMembers, isAdminEmail } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
 
@@ -11,10 +11,14 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; memberId: string }> },
 ) {
   const session = await auth();
-  if (!(await isAdminEmail(session?.user?.email))) {
+  const { id, memberId } = await params;
+  const email = session?.user?.email;
+  if (!(await canManageMembers(id, email))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 403 });
   }
-  const { id, memberId } = await params;
+  // Instance admins can grant/revoke instance-admin; renaming members stays
+  // a global-Admin-only action.
+  const isGlobalAdmin = await isAdminEmail(email);
 
   const body = await request.json().catch(() => null);
   const data: { isInstanceAdmin?: boolean; displayName?: string | null } = {};
@@ -22,6 +26,9 @@ export async function PATCH(
     data.isInstanceAdmin = body.isInstanceAdmin;
   }
   if (body?.displayName !== undefined) {
+    if (!isGlobalAdmin) {
+      return NextResponse.json({ error: "表示名の変更は管理者のみ可能です" }, { status: 403 });
+    }
     data.displayName = body.displayName === null ? null : String(body.displayName).trim() || null;
   }
   if (Object.keys(data).length === 0) {
@@ -30,6 +37,9 @@ export async function PATCH(
 
   const member = await prisma.instanceMember.findFirst({ where: { id: memberId, instanceId: id } });
   if (!member) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (!isGlobalAdmin && data.isInstanceAdmin === false && member.email === email) {
+    return NextResponse.json({ error: "自分自身の管理者権限は外せません" }, { status: 400 });
+  }
 
   const updated = await prisma.instanceMember.update({
     where: { id: memberId },

@@ -78,3 +78,19 @@ export async function isInstanceAdmin(
   });
   return member?.isInstanceAdmin ?? false;
 }
+
+// Who may invite members and grant/revoke instance-admin for an instance:
+// global Admins, or that instance's own admins while it is active (a
+// stopped instance is locked for everyone except global Admins).
+export async function canManageMembers(
+  instanceId: string,
+  email: string | null | undefined,
+): Promise<boolean> {
+  if (!email) return false;
+  if (await isAdminEmail(email)) return true;
+  const member = await prisma.instanceMember.findUnique({
+    where: { instanceId_email: { instanceId, email } },
+    include: { instance: true },
+  });
+  return (member?.isInstanceAdmin ?? false) && (member?.instance.active ?? false);
+}

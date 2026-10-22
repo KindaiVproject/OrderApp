@@ -2,23 +2,12 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import type {
-  InstanceModel,
-  InstanceMemberModel,
-  AdminInviteModel,
-  UserModel,
-} from "@generated/prisma/models";
+import type { InstanceModel, AdminInviteModel } from "@generated/prisma/models";
 import ConfirmModal from "@/components/ConfirmModal";
 import { parseEmailList } from "@/lib/emails";
+import { memberDisplayName, type MemberWithUser } from "@/lib/memberName";
 
-type MemberWithUser = InstanceMemberModel & { user: UserModel | null };
 type InstanceWithMembers = InstanceModel & { members: MemberWithUser[] };
-
-// displayName (admin-set) wins, then the Google account name (once signed
-// in), then the raw email as a last resort.
-function memberDisplayName(member: MemberWithUser) {
-  return member.displayName ?? member.user?.name ?? member.email;
-}
 
 export default function AdminClient({
   initialInstances,
@@ -135,7 +124,11 @@ export default function AdminClient({
     const succeeded = results.filter((r) => r.ok).map((r) => r.data);
     if (succeeded.length > 0) {
       setInstances((prev) =>
-        prev.map((i) => (i.id === instanceId ? { ...i, members: [...i.members, ...succeeded] } : i)),
+        prev.map((i) => {
+          if (i.id !== instanceId) return i;
+          const newOnes = succeeded.filter((m) => !i.members.some((x) => x.id === m.id));
+          return { ...i, members: [...i.members, ...newOnes] };
+        }),
       );
     }
 

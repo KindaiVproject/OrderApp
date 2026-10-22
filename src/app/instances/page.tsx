@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getMyInstances, isAdminEmail, requireSession } from "@/lib/instance";
 import InstancePicker from "./InstancePicker";
+import LogoutButton from "./LogoutButton";
 
 export default async function InstancesPage() {
   const session = await requireSession();
@@ -19,6 +20,8 @@ export default async function InstancesPage() {
           インスタンス管理(Admin)
         </Link>
       )}
+
+      <LogoutButton />
     </div>
   );
 }

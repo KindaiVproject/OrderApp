@@ -18,12 +18,12 @@ export default function Header({
   instanceName,
   instanceLabel,
   isAdmin,
-  canViewEditLog,
+  canManageInstance,
 }: {
   instanceName: string;
   instanceLabel: string;
   isAdmin: boolean;
-  canViewEditLog: boolean;
+  canManageInstance: boolean;
 }) {
   const pathname = usePathname();
   const linkRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
@@ -33,9 +33,14 @@ export default function Header({
     ready: false,
   });
 
+  // Instance admins (and global Admins) get the member-management and
+  // edit-history tabs in the same nav group so the indicator tracks them.
   const navItems = useMemo(
-    () => (canViewEditLog ? [...BASE_NAV_ITEMS, { href: "/edit-log", label: "編集履歴" }] : BASE_NAV_ITEMS),
-    [canViewEditLog],
+    () =>
+      canManageInstance
+        ? [...BASE_NAV_ITEMS, { href: "/members", label: "メンバー" }, { href: "/edit-log", label: "編集履歴" }]
+        : BASE_NAV_ITEMS,
+    [canManageInstance],
   );
 
   useEffect(() => {

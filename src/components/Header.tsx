@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 
 const BASE_NAV_ITEMS = [
@@ -12,6 +12,17 @@ const BASE_NAV_ITEMS = [
   { href: "/history", label: "注文履歴" },
   { href: "/products", label: "商品" },
   { href: "/stats", label: "統計" },
+];
+
+// Instance switching and management links sit beside the main tabs rather
+// than in them, so the main tab row stays short enough to avoid wrapping on
+// phones. They highlight themselves; only the main tabs use the sliding
+// indicator. "manage" = instance admin or Admin; "admin" = Admin only.
+const SECONDARY_LINKS: { href: string; label: string; requires?: "manage" | "admin" }[] = [
+  { href: "/instances", label: "切替" },
+  { href: "/members", label: "メンバー", requires: "manage" },
+  { href: "/edit-log", label: "編集履歴", requires: "manage" },
+  { href: "/admin", label: "Admin", requires: "admin" },
 ];
 
 export default function Header({
@@ -27,28 +38,26 @@ export default function Header({
 }) {
   const pathname = usePathname();
   const linkRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
-  const [indicator, setIndicator] = useState<{ left: number; width: number; ready: boolean }>({
-    left: 0,
-    width: 0,
-    ready: false,
-  });
-
-  // Instance admins (and global Admins) get the member-management and
-  // edit-history tabs in the same nav group so the indicator tracks them.
-  const navItems = useMemo(
-    () =>
-      canManageInstance
-        ? [...BASE_NAV_ITEMS, { href: "/members", label: "メンバー" }, { href: "/edit-log", label: "編集履歴" }]
-        : BASE_NAV_ITEMS,
-    [canManageInstance],
-  );
+  const [indicator, setIndicator] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    ready: boolean;
+  }>({ left: 0, top: 0, width: 0, height: 0, ready: false });
 
   useEffect(() => {
     function measure() {
-      const activeItem = navItems.find((item) => item.href === pathname);
+      const activeItem = BASE_NAV_ITEMS.find((item) => item.href === pathname);
       const el = activeItem ? linkRefs.current[activeItem.href] : null;
       if (el) {
-        setIndicator({ left: el.offsetLeft, width: el.offsetWidth, ready: true });
+        setIndicator({
+          left: el.offsetLeft,
+          top: el.offsetTop,
+          width: el.offsetWidth,
+          height: el.offsetHeight,
+          ready: true,
+        });
       } else {
         // No nav item matches the current page (e.g. /admin, /instances) —
         // hide the indicator instead of leaving it stuck on the last match.
@@ -58,7 +67,7 @@ export default function Header({
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [pathname, navItems]);
+  }, [pathname]);
 
   return (
     <header className="sticky top-0 z-20 flex flex-wrap items-center gap-2 border-b border-neutral-200 bg-white px-3 py-2 shadow-sm">
@@ -75,12 +84,17 @@ export default function Header({
       <nav className="relative flex flex-wrap items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-100 p-1">
         <span
           aria-hidden
-          className={`absolute inset-y-1 rounded bg-neutral-900 shadow-sm transition-all duration-300 ease-out ${
+          className={`absolute rounded bg-neutral-900 shadow-sm transition-all duration-300 ease-out ${
             indicator.ready ? "opacity-100" : "opacity-0"
           }`}
-          style={{ left: indicator.left, width: indicator.width }}
+          style={{
+            left: indicator.left,
+            top: indicator.top,
+            width: indicator.width,
+            height: indicator.height,
+          }}
         />
-        {navItems.map((item) => {
+        {BASE_NAV_ITEMS.map((item) => {
           const active = pathname === item.href;
           return (
             <Link
@@ -99,21 +113,22 @@ export default function Header({
         })}
       </nav>
 
-      <div className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-white p-1 shadow-sm">
-        <Link
-          href="/instances"
-          className="rounded px-2 py-1 text-xs font-medium text-neutral-500 hover:bg-neutral-100"
-        >
-          切替
-        </Link>
-        {isAdmin && (
+      <div className="flex flex-wrap items-center gap-1 rounded-lg border border-neutral-200 bg-white p-1 shadow-sm">
+        {SECONDARY_LINKS.filter(
+          (item) => !item.requires || (item.requires === "manage" ? canManageInstance : isAdmin),
+        ).map((item) => (
           <Link
-            href="/admin"
-            className="rounded px-2 py-1 text-xs font-medium text-neutral-500 hover:bg-neutral-100"
+            key={item.href}
+            href={item.href}
+            className={`rounded px-2 py-1 text-xs font-medium ${
+              pathname === item.href
+                ? "bg-neutral-900 text-white"
+                : "text-neutral-500 hover:bg-neutral-100"
+            }`}
           >
-            Admin
+            {item.label}
           </Link>
-        )}
+        ))}
       </div>
       <button
         type="button"

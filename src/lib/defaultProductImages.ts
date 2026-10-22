@@ -5,4 +5,6 @@ export const DEFAULT_PRODUCT_IMAGES = [
   { url: "/defaults/products/sweets.svg", label: "スイーツ" },
   { url: "/defaults/products/drink.svg", label: "飲み物" },
   { url: "/defaults/products/bag.svg", label: "その他" },
+  { url: "/defaults/products/discard.svg", label: "廃棄" },
+  { url: "/defaults/products/tasting.svg", label: "検食" },
 ] as const;

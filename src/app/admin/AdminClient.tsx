@@ -6,7 +6,15 @@ import type { InstanceModel, AdminInviteModel } from "@generated/prisma/models";
 import ConfirmModal from "@/components/ConfirmModal";
 import { parseEmailList } from "@/lib/emails";
 import Avatar from "@/components/Avatar";
+import { JOB_STALE_MINUTES } from "@/lib/jobs";
 import { memberDisplayName, resolveName, type MemberWithUser } from "@/lib/memberName";
+
+type NotifyJobStatus = {
+  configured: boolean;
+  ranMinutesAgo: number | null;
+  checked: number;
+  sent: number;
+};
 
 type InstanceWithMembers = InstanceModel & { members: MemberWithUser[] };
 
@@ -15,11 +23,13 @@ export default function AdminClient({
   initialAdminInvites,
   bootstrapAdminEmail,
   adminProfiles,
+  notifyJob,
 }: {
   initialInstances: InstanceWithMembers[];
   initialAdminInvites: AdminInviteModel[];
   bootstrapAdminEmail: string;
   adminProfiles: Record<string, { name: string | null; image: string | null }>;
+  notifyJob: NotifyJobStatus;
 }) {
   const [instances, setInstances] = useState(initialInstances);
   const [name, setName] = useState("");
@@ -449,6 +459,8 @@ export default function AdminClient({
         </ul>
       </div>
 
+      <NotifyJobCard job={notifyJob} />
+
       {removingAdmin && (
         <ConfirmModal
           title="管理者権限を削除"
@@ -569,6 +581,32 @@ function DuplicateInstanceModal({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Is the external per-minute scheduler (cron-job.org) really reaching
+// /api/cron/shift-notify? The route stamps a heartbeat on every authorized run.
+function NotifyJobCard({ job }: { job: NotifyJobStatus }) {
+  let tone = "border-green-200 bg-green-50 text-green-800";
+  let text: string;
+  if (!job.configured) {
+    tone = "border-red-200 bg-red-50 text-red-700";
+    text = "サーバーの設定が足りません(VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / CRON_SECRET を確認してください)";
+  } else if (job.ranMinutesAgo === null) {
+    tone = "border-red-200 bg-red-50 text-red-700";
+    text =
+      "一度も実行されていません。cron-job.org のジョブ(URL・Authorizationヘッダー)と、Vercel の Deployment Protection で /api/cron/ が弾かれていないかを確認してください";
+  } else if (job.ranMinutesAgo > JOB_STALE_MINUTES) {
+    tone = "border-red-200 bg-red-50 text-red-700";
+    text = `最後の実行は${job.ranMinutesAgo}分前です。cron-job.org のジョブが止まっている可能性があります`;
+  } else {
+    text = `正常に実行されています(最終実行: ${job.ranMinutesAgo}分前 / 直近の対象 ${job.checked}件・送信 ${job.sent}件)`;
+  }
+  return (
+    <div className="flex flex-col gap-1.5">
+      <h2 className="text-base font-semibold text-neutral-800">シフト通知ジョブの状態</h2>
+      <p className={`rounded-lg border p-3 text-xs leading-relaxed ${tone}`}>{text}</p>
     </div>
   );
 }

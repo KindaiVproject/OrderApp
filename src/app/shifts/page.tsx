@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { auth } from "@/auth";
-import InstanceHeader from "@/components/InstanceHeader";
 import { getCurrentInstance, getMyInstances, requireSession } from "@/lib/instance";
 import { currentTimeMs } from "@/lib/datetime";
 import { prisma } from "@/lib/prisma";
@@ -21,19 +20,23 @@ export default async function ShiftsPage({ searchParams }: { searchParams: Promi
 
   return (
     <div className="flex flex-1 flex-col">
-      {current ? (
-        <InstanceHeader instance={current} />
-      ) : (
-        <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-neutral-200 bg-white px-3 py-2 text-xs shadow-sm">
-          <span className="mr-auto text-sm font-semibold text-neutral-800">注文管理</span>
-          <Link href="/instances" className="font-medium text-neutral-600 hover:underline">
-            インスタンス選択
+      {/* Deliberately not the instance header: this page can show another
+          (or no) instance, and the 注文/厨房/... panel would belong to
+          whichever instance was opened last. */}
+      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-neutral-200 bg-white px-3 py-2 text-xs shadow-sm">
+        <span className="mr-auto text-sm font-semibold text-neutral-800">注文管理 シフト</span>
+        {current && (
+          <Link href="/order" className="font-medium text-neutral-600 hover:underline">
+            {current.label || current.name}に戻る
           </Link>
-          <Link href="/account" className="font-medium text-neutral-600 hover:underline">
-            アカウント設定
-          </Link>
-        </header>
-      )}
+        )}
+        <Link href="/instances" className="font-medium text-neutral-600 hover:underline">
+          インスタンス選択
+        </Link>
+        <Link href="/account" className="font-medium text-neutral-600 hover:underline">
+          アカウント設定
+        </Link>
+      </header>
 
       <main className="flex flex-1 flex-col">
         {openable.length === 0 ? (

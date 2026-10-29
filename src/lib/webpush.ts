@@ -25,20 +25,26 @@ function configure() {
 }
 
 // Sends to every browser the user enabled notifications on. Subscriptions
-// the push service reports as gone (404/410) are deleted. Returns how many
-// deliveries succeeded.
-export async function sendPushToUser(userId: string, payload: PushPayload): Promise<number> {
-  if (!isPushConfigured()) return 0;
+// the push service reports as gone (404/410) are deleted. `failed` counts
+// other errors (possibly transient), so callers can retry them.
+export async function sendPushToUser(
+  userId: string,
+  payload: PushPayload,
+): Promise<{ sent: number; failed: number }> {
+  if (!isPushConfigured()) return { sent: 0, failed: 0 };
   configure();
   const subs = await prisma.pushSubscription.findMany({ where: { userId } });
   let sent = 0;
+  let failed = 0;
   await Promise.all(
     subs.map(async (sub) => {
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
           JSON.stringify(payload),
-          { TTL: 60 * 30 },
+          // "high" so Android delivers it right away instead of batching it
+          // while the device is dozing.
+          { TTL: 60 * 30, urgency: "high" },
         );
         sent++;
       } catch (e) {
@@ -46,10 +52,11 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
         if (status === 404 || status === 410) {
           await prisma.pushSubscription.deleteMany({ where: { id: sub.id } });
         } else {
+          failed++;
           console.error("web push failed", status, e);
         }
       }
     }),
   );
-  return sent;
+  return { sent, failed };
 }

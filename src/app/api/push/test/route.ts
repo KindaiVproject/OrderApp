@@ -12,7 +12,7 @@ export async function POST() {
     return NextResponse.json({ error: "通知の設定がサーバーに入っていません" }, { status: 503 });
   }
 
-  const sent = await sendPushToUser(user.id, {
+  const { sent } = await sendPushToUser(user.id, {
     title: "テスト通知",
     body: "通知は正常に届いています",
     url: "/account",

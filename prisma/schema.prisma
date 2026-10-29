@@ -258,3 +258,12 @@ model OrderItem {
 
   @@index([orderId])
 }
+
+// Last run of a background job triggered from outside (the shift-notification
+// cron). Lets /admin show whether the external scheduler is really reaching us.
+model JobRun {
+  name    String   @id
+  ranAt   DateTime
+  checked Int      @default(0)
+  sent    Int      @default(0)
+}

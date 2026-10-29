@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
+import { SHIFT_NOTIFY_JOB } from "@/lib/jobs";
 import { prisma } from "@/lib/prisma";
 import { formatShiftRange } from "@/lib/shifts";
 import { isPushConfigured, sendPushToUser } from "@/lib/webpush";
@@ -46,20 +47,26 @@ export async function GET(request: Request) {
     const { startsAt, endsAt, instance } = a.shift;
     const detail = `${a.role} ${formatShiftRange(startsAt, endsAt)}(${instance.label || instance.name})`;
 
+    // Claim first so overlapping cron calls can't double-send; if every
+    // delivery then fails for a possibly transient reason, give the claim back
+    // so the next minute's run retries (until the window closes).
+    async function deliver(payload: { title: string; body: string }, release: () => Promise<unknown>) {
+      const result = await sendPushToUser(user!.id, { ...payload, url: "/shifts" });
+      if (result.sent === 0 && result.failed > 0) await release();
+      return result.sent;
+    }
+
     if (startsAt > now) {
       if (a.beforeNotifiedAt) continue;
-      // Claim first so overlapping cron calls can't double-send.
       const claimed = await prisma.shiftAssignment.updateMany({
         where: { id: a.id, beforeNotifiedAt: null },
         data: { beforeNotifiedAt: now },
       });
       if (claimed.count === 0 || !user.shiftReminder30) continue;
       const mins = Math.ceil((startsAt.getTime() - now.getTime()) / 60_000);
-      sent += await sendPushToUser(user.id, {
-        title: `シフト開始の${mins}分前です`,
-        body: detail,
-        url: "/shifts",
-      });
+      sent += await deliver({ title: `シフト開始の${mins}分前です`, body: detail }, () =>
+        prisma.shiftAssignment.updateMany({ where: { id: a.id }, data: { beforeNotifiedAt: null } }),
+      );
     } else {
       if (a.startNotifiedAt) continue;
       const claimed = await prisma.shiftAssignment.updateMany({
@@ -67,13 +74,18 @@ export async function GET(request: Request) {
         data: { startNotifiedAt: now, ...(a.beforeNotifiedAt ? {} : { beforeNotifiedAt: now }) },
       });
       if (claimed.count === 0) continue;
-      sent += await sendPushToUser(user.id, {
-        title: "シフト開始です",
-        body: detail,
-        url: "/shifts",
-      });
+      sent += await deliver({ title: "シフト開始です", body: detail }, () =>
+        prisma.shiftAssignment.updateMany({ where: { id: a.id }, data: { startNotifiedAt: null } }),
+      );
     }
   }
+
+  // Heartbeat for the /admin status card.
+  await prisma.jobRun.upsert({
+    where: { name: SHIFT_NOTIFY_JOB },
+    update: { ranAt: now, checked: assignments.length, sent },
+    create: { name: SHIFT_NOTIFY_JOB, ranAt: now, checked: assignments.length, sent },
+  });
 
   return NextResponse.json({ checked: assignments.length, sent });
 }

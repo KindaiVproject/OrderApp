@@ -1,15 +1,19 @@
 import { getAdminEmail, requireAdmin } from "@/lib/instance";
+import { currentTimeMs } from "@/lib/datetime";
+import { SHIFT_NOTIFY_JOB } from "@/lib/jobs";
+import { isPushConfigured } from "@/lib/webpush";
 import { prisma } from "@/lib/prisma";
 import AdminClient from "./AdminClient";
 
 export default async function AdminPage() {
   await requireAdmin();
-  const [instances, adminInvites] = await Promise.all([
+  const [instances, adminInvites, job] = await Promise.all([
     prisma.instance.findMany({
       include: { members: { include: { user: true }, orderBy: { createdAt: "asc" } } },
       orderBy: { createdAt: "asc" },
     }),
     prisma.adminInvite.findMany({ orderBy: { createdAt: "asc" } }),
+    prisma.jobRun.findUnique({ where: { name: SHIFT_NOTIFY_JOB } }),
   ]);
 
   // Same priority as members: a display name set on any instance membership,
@@ -31,6 +35,12 @@ export default async function AdminPage() {
       initialAdminInvites={adminInvites}
       bootstrapAdminEmail={bootstrapAdminEmail}
       adminProfiles={adminProfiles}
+      notifyJob={{
+        configured: isPushConfigured() && Boolean(process.env.CRON_SECRET),
+        ranMinutesAgo: job ? Math.floor((currentTimeMs() - job.ranAt.getTime()) / 60_000) : null,
+        checked: job?.checked ?? 0,
+        sent: job?.sent ?? 0,
+      }}
     />
   );
 }

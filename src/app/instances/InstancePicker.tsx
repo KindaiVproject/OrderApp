@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { InstanceModel } from "@generated/prisma/models";
@@ -41,29 +42,38 @@ export default function InstancePicker({ instances }: { instances: InstanceModel
   return (
     <div className="flex flex-col gap-2">
       {instances.map((instance) => (
-        <button
-          key={instance.id}
-          type="button"
-          disabled={!instance.active || busyId === instance.id}
-          onClick={() => select(instance)}
-          className={`flex items-center justify-between rounded-lg border p-3 text-left shadow-sm ${
-            instance.active
-              ? "border-neutral-200 bg-white hover:bg-neutral-50"
-              : "cursor-not-allowed border-neutral-100 bg-neutral-50 opacity-50"
-          }`}
-        >
-          <span>
-            <span className="block text-sm font-medium text-neutral-800">{instance.name}</span>
-            {instance.label && <span className="block text-xs text-neutral-400">{instance.label}</span>}
-          </span>
-          <span
-            className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
-              instance.active ? "bg-green-100 text-green-700" : "bg-neutral-200 text-neutral-500"
+        <div key={instance.id} className="flex items-stretch gap-2">
+          <button
+            type="button"
+            disabled={!instance.active || busyId === instance.id}
+            onClick={() => select(instance)}
+            className={`flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border p-3 text-left shadow-sm ${
+              instance.active
+                ? "border-neutral-200 bg-white hover:bg-neutral-50"
+                : "cursor-not-allowed border-neutral-100 bg-neutral-50 opacity-50"
             }`}
           >
-            {instance.active ? "稼働中" : "停止中"}
-          </span>
-        </button>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-medium text-neutral-800">{instance.name}</span>
+              {instance.label && <span className="block truncate text-xs text-neutral-400">{instance.label}</span>}
+            </span>
+            <span
+              className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                instance.active ? "bg-green-100 text-green-700" : "bg-neutral-200 text-neutral-500"
+              }`}
+            >
+              {instance.active ? "稼働中" : "停止中"}
+            </span>
+          </button>
+          {instance.active && (
+            <Link
+              href={`/shifts?instance=${instance.id}`}
+              className="flex shrink-0 items-center rounded-lg border border-neutral-300 bg-white px-3 text-xs font-medium text-neutral-700 shadow-sm hover:bg-neutral-50"
+            >
+              シフト
+            </Link>
+          )}
+        </div>
       ))}
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>

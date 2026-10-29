@@ -30,6 +30,7 @@ const SECONDARY_LINKS: { href: string; label: string; requires?: "manage" | "adm
 export default function Header({
   userName,
   userImage,
+  instanceId,
   instanceName,
   instanceLabel,
   isAdmin,
@@ -37,6 +38,7 @@ export default function Header({
 }: {
   userName: string;
   userImage: string | null;
+  instanceId: string;
   instanceName: string;
   instanceLabel: string;
   isAdmin: boolean;
@@ -125,7 +127,9 @@ export default function Header({
         ).map((item) => (
           <Link
             key={item.href}
-            href={item.href}
+            // The shift page opens on the instance you are working in; its own
+            // switcher moves to other instances or to "my shifts" in all of them.
+            href={item.href === "/shifts" ? `/shifts?instance=${instanceId}` : item.href}
             className={`rounded px-2 py-1 text-xs font-medium ${
               pathname === item.href
                 ? "bg-neutral-900 text-white"

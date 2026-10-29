@@ -5,9 +5,11 @@ import { useState } from "react";
 import Avatar from "@/components/Avatar";
 import ConfirmModal from "@/components/ConfirmModal";
 import { formatJstDateKey, formatJstTime } from "@/lib/datetime";
+import MemberPicker from "./MemberPicker";
 import RolesModal from "./RolesModal";
 import ShiftFormModal, { type ShiftFormInitial } from "./ShiftFormModal";
 import ShiftTable from "./ShiftTable";
+import type { PickerOption } from "./MemberPicker";
 import {
   dateLabel,
   nextDateKey,
@@ -24,12 +26,14 @@ const timeRange = (s: ShiftView) =>
   `${formatJstTime(new Date(s.startsAt))}〜${formatJstTime(new Date(s.endsAt))}`;
 
 export default function ShiftsClient({
+  instanceId,
   isAdmin,
   nowMs,
   members,
   roles,
   shifts,
 }: {
+  instanceId: string;
   isAdmin: boolean;
   // Server render time, so "finished" shifts are decided without Date.now() here.
   nowMs: number;
@@ -53,11 +57,11 @@ export default function ShiftsClient({
   const pastCount = shifts.filter((s) => new Date(s.endsAt).getTime() < nowMs).length;
 
   // Filter choices come from what is actually on the board.
-  const memberChoices = new Map<string, string>();
+  const memberChoices = new Map<string, PickerOption>();
   const roleChoices = new Set<string>();
   for (const s of pool) {
     for (const a of s.assignments) {
-      memberChoices.set(a.memberId, a.name);
+      memberChoices.set(a.memberId, { id: a.memberId, name: a.name, image: a.image, unapproved: a.unapproved });
       roleChoices.add(a.role);
     }
   }
@@ -83,7 +87,8 @@ export default function ShiftsClient({
     groups.set(key, [...(groups.get(key) ?? []), item]);
   }
 
-  const emptyInitial: ShiftFormInitial = { date: "", start: "", end: "", rows: [] };
+  // New shifts start on today (JST), per the server's clock.
+  const emptyInitial: ShiftFormInitial = { date: formatJstDateKey(new Date(nowMs)), start: "", end: "", rows: [] };
   const rowsOf = (s: ShiftView) => s.assignments.map((a) => ({ memberId: a.memberId, role: a.role }));
 
   return (
@@ -158,19 +163,16 @@ export default function ShiftsClient({
               </option>
             ))}
           </select>
-          <select
-            value={fMember}
-            onChange={(e) => setFMember(e.target.value)}
-            aria-label="担当者で絞り込み"
-            className="rounded border border-neutral-300 px-2 py-1.5"
-          >
-            <option value="">全員</option>
-            {[...memberChoices.entries()].map(([id, name]) => (
-              <option key={id} value={id}>
-                {name}
-              </option>
-            ))}
-          </select>
+          <div className="w-44">
+            <MemberPicker
+              options={[...memberChoices.values()]}
+              value={fMember}
+              onChange={setFMember}
+              placeholder="全員"
+              emptyLabel="全員"
+              ariaLabel="担当者で絞り込み"
+            />
+          </div>
           <select
             value={fRole}
             onChange={(e) => setFRole(e.target.value)}
@@ -299,6 +301,7 @@ export default function ShiftsClient({
 
       {form && (
         <ShiftFormModal
+          instanceId={instanceId}
           shiftId={form.shiftId}
           initial={form.initial}
           members={members}
@@ -311,7 +314,7 @@ export default function ShiftsClient({
         />
       )}
       {managingRoles && (
-        <RolesModal roles={roles} onClose={() => setManagingRoles(false)} onChanged={() => router.refresh()} />
+        <RolesModal instanceId={instanceId} roles={roles} onClose={() => setManagingRoles(false)} onChanged={() => router.refresh()} />
       )}
       {deleting && (
         <ConfirmModal

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Avatar from "@/components/Avatar";
@@ -12,6 +13,7 @@ export default function AccountClient({
   googleName,
   image,
   initialDisplayName,
+  hasOpenableInstance,
   initialReminder30,
   vapidPublicKey,
 }: {
@@ -19,6 +21,7 @@ export default function AccountClient({
   googleName: string | null;
   image: string | null;
   initialDisplayName: string;
+  hasOpenableInstance: boolean;
   initialReminder30: boolean;
   vapidPublicKey: string;
 }) {
@@ -72,6 +75,15 @@ export default function AccountClient({
           <span className="truncate text-xs text-neutral-500">{email}</span>
         </div>
       </div>
+
+      {hasOpenableInstance && (
+        <Link
+          href="/shifts"
+          className="rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-center text-sm font-medium text-neutral-800 shadow-sm hover:bg-neutral-50"
+        >
+          シフトを見る
+        </Link>
+      )}
 
       <form
         onSubmit={save}

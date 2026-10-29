@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { addMinutesToTime, timeToMinutes } from "@/lib/shifts";
+import MemberPicker from "./MemberPicker";
 import type { MemberOption, RoleOption } from "./shiftTypes";
 
 export type FormRow = { memberId: string; role: string };
@@ -17,6 +18,7 @@ const END_STEPS = [
 // Adds a shift (shiftId null) or edits one. A new shift defaults to one hour:
 // the end follows the start until the end is adjusted by hand.
 export default function ShiftFormModal({
+  instanceId,
   shiftId,
   initial,
   members,
@@ -24,6 +26,7 @@ export default function ShiftFormModal({
   onClose,
   onSaved,
 }: {
+  instanceId: string;
   shiftId: string | null;
   initial: ShiftFormInitial;
   members: MemberOption[];
@@ -73,7 +76,7 @@ export default function ShiftFormModal({
         method: shiftId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         // Rows left without a member are dropped rather than rejected.
-        body: JSON.stringify({ date, start, end, assignments: rows.filter((r) => r.memberId) }),
+        body: JSON.stringify({ instanceId, date, start, end, assignments: rows.filter((r) => r.memberId) }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -152,20 +155,15 @@ export default function ShiftFormModal({
             </p>
           )}
           {rows.map((row, i) => (
-            <div key={i} className="flex items-center gap-1.5">
-              <select
+            <div key={i} className="flex items-start gap-1.5">
+              <MemberPicker
+                inline
+                options={members}
                 value={row.memberId}
-                onChange={(e) => updateRow(i, { memberId: e.target.value })}
-                className="min-w-0 flex-1 rounded border border-neutral-300 px-2 py-1.5 text-sm"
-              >
-                <option value="">担当者を選択</option>
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                    {m.unapproved ? "(未承認)" : ""}
-                  </option>
-                ))}
-              </select>
+                onChange={(id) => updateRow(i, { memberId: id })}
+                placeholder="担当者を選択"
+                ariaLabel="担当者"
+              />
               <select
                 value={row.role}
                 onChange={(e) => updateRow(i, { role: e.target.value })}
@@ -182,7 +180,7 @@ export default function ShiftFormModal({
                 type="button"
                 onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}
                 aria-label="この行を削除"
-                className="px-1 text-neutral-400 hover:text-red-600"
+                className="px-1 py-1.5 text-neutral-400 hover:text-red-600"
               >
                 ✕
               </button>

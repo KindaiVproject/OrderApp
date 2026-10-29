@@ -58,6 +58,20 @@ export async function getCurrentInstance() {
   return membership.instance;
 }
 
+// An active instance the signed-in user is a member of, looked up by id
+// rather than by the "current instance" cookie. The shift screens use this so
+// one page can show (and edit) any instance the user can open.
+export async function getMemberInstance(instanceId: string) {
+  const session = await auth();
+  if (!session?.user?.email || !instanceId) return null;
+  const membership = await prisma.instanceMember.findUnique({
+    where: { instanceId_email: { instanceId, email: session.user.email } },
+    include: { instance: true },
+  });
+  if (!membership || !membership.instance.active) return null;
+  return membership.instance;
+}
+
 export async function requireCurrentInstance() {
   await requireSession();
   const instance = await getCurrentInstance();

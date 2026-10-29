@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getCurrentInstance, isAdminEmail } from "@/lib/instance";
+import { getMemberInstance, isAdminEmail } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
 import { formatJstDateKey } from "@/lib/datetime";
@@ -8,7 +8,8 @@ import { formatShiftRange, parseShiftInput } from "@/lib/shifts";
 
 // Creating/editing shifts is global-Admin only.
 export async function POST(request: Request) {
-  const instance = await getCurrentInstance();
+  const body = await request.json().catch(() => null);
+  const instance = await getMemberInstance(typeof body?.instanceId === "string" ? body.instanceId : "");
   if (!instance) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const session = await auth();
   if (!(await isAdminEmail(session?.user?.email))) {
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
   });
   const roles = await prisma.shiftRole.findMany({ where: { instanceId: instance.id } });
   const parsed = parseShiftInput(
-    await request.json().catch(() => null),
+    body,
     new Set(members.map((m) => m.id)),
     new Set(roles.map((r) => r.name)),
   );

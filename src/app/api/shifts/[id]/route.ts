@@ -1,34 +1,31 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getCurrentInstance, isAdminEmail } from "@/lib/instance";
+import { getMemberInstance, isAdminEmail } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
 import { formatJstDateKey } from "@/lib/datetime";
 import { formatShiftRange, parseShiftInput } from "@/lib/shifts";
 
-async function authorize() {
-  const instance = await getCurrentInstance();
-  if (!instance) return { error: NextResponse.json({ error: "unauthorized" }, { status: 401 }) };
+// The shift's own instance decides access (not the "current instance"
+// cookie), so the all-instances shift page can edit any instance's shifts.
+async function authorize(shiftId: string) {
   const session = await auth();
   if (!(await isAdminEmail(session?.user?.email))) {
     return {
       error: NextResponse.json({ error: "シフトの編集は管理者のみ可能です" }, { status: 403 }),
     };
   }
-  return { instance, email: session?.user?.email };
+  const shift = await prisma.shift.findUnique({ where: { id: shiftId }, include: { assignments: true } });
+  const instance = shift ? await getMemberInstance(shift.instanceId) : null;
+  if (!shift || !instance) return { error: NextResponse.json({ error: "not found" }, { status: 404 }) };
+  return { instance, shift, email: session?.user?.email };
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const authz = await authorize();
+  const authz = await authorize(id);
   if ("error" in authz) return authz.error;
-  const { instance, email } = authz;
-
-  const existing = await prisma.shift.findFirst({
-    where: { id, instanceId: instance.id },
-    include: { assignments: true },
-  });
-  if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
+  const { instance, email, shift: existing } = authz;
 
   const roles = await prisma.shiftRole.findMany({ where: { instanceId: instance.id } });
   const allowedRoles = new Set([...roles.map((r) => r.name), ...existing.assignments.map((a) => a.role)]);
@@ -68,12 +65,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const authz = await authorize();
+  const authz = await authorize(id);
   if ("error" in authz) return authz.error;
-  const { instance, email } = authz;
-
-  const existing = await prisma.shift.findFirst({ where: { id, instanceId: instance.id } });
-  if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
+  const { instance, email, shift: existing } = authz;
 
   await prisma.shift.delete({ where: { id } });
   await logEdit({

@@ -6,10 +6,12 @@ import { roleColor, type RoleOption } from "./shiftTypes";
 
 // Admin: register / remove the roles the shift form offers for this instance.
 export default function RolesModal({
+  instanceId,
   roles,
   onClose,
   onChanged,
 }: {
+  instanceId: string;
   roles: RoleOption[];
   onClose: () => void;
   onChanged: () => void;
@@ -27,7 +29,7 @@ export default function RolesModal({
       const res = await fetch("/api/shifts/roles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ instanceId, name }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

@@ -1,20 +1,20 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getCurrentInstance, isAdminEmail } from "@/lib/instance";
+import { getMemberInstance, isAdminEmail } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
 import { MAX_ROLE_LENGTH } from "@/lib/shifts";
 
 // Registering shift roles is global-Admin only, like the shifts themselves.
 export async function POST(request: Request) {
-  const instance = await getCurrentInstance();
+  const body = await request.json().catch(() => null);
+  const instance = await getMemberInstance(typeof body?.instanceId === "string" ? body.instanceId : "");
   if (!instance) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const session = await auth();
   if (!(await isAdminEmail(session?.user?.email))) {
     return NextResponse.json({ error: "役割の登録は管理者のみ可能です" }, { status: 403 });
   }
 
-  const body = await request.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   if (!name) return NextResponse.json({ error: "役割名を入力してください" }, { status: 400 });
   if (name.length > MAX_ROLE_LENGTH) {

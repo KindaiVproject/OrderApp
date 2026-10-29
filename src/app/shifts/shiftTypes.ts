@@ -1,4 +1,4 @@
-export type MemberOption = { id: string; name: string; unapproved: boolean };
+export type MemberOption = { id: string; name: string; image: string | null; unapproved: boolean };
 export type RoleOption = { id: string; name: string };
 export type AssignmentView = {
   memberId: string;

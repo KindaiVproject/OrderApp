@@ -9,6 +9,7 @@ export type ScheduleMode = "role" | "person";
 
 export type ScheduleBar = {
   shiftId: string;
+  assignmentId: string;
   title: string;
   roleName: string;
   personName: string;
@@ -72,6 +73,7 @@ export function buildSchedule(
       }
       row.bars.push({
         shiftId: shift.id,
+        assignmentId: a.assignmentId,
         title: `${a.name}${a.unapproved ? "(未承認ユーザー)" : ""} ${a.role} ${hhmm(start)}〜${hhmm(end)}`,
         roleName: a.role,
         personName: a.name,

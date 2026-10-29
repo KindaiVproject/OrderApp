@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Avatar from "@/components/Avatar";
 import ConfirmModal from "@/components/ConfirmModal";
 import { formatJstDateKey, formatJstTime, nextFullHourJst } from "@/lib/datetime";
@@ -53,6 +53,8 @@ export default function ShiftsClient({
   const [form, setForm] = useState<Form | null>(null);
   const [deleting, setDeleting] = useState<ShiftView | null>(null);
   const [managingRoles, setManagingRoles] = useState(false);
+  // True while router.refresh() is bringing the saved change back from the server.
+  const [refreshing, startRefresh] = useTransition();
 
   const dateOf = (s: ShiftView) => formatJstDateKey(new Date(s.startsAt));
   const pool = shifts.filter((s) => showPast || new Date(s.endsAt).getTime() >= nowMs);
@@ -108,6 +110,19 @@ export default function ShiftsClient({
     const i = roles.findIndex((r) => r.name === role);
     return i === -1 ? roles.length : i;
   };
+  // Dragging a bar on the schedule table: one person's time and/or role.
+  async function moveAssignment(change: { assignmentId: string; start: string; end: string; role: string }) {
+    const res = await fetch(`/api/shifts/assignments/${change.assignmentId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ start: change.start, end: change.end, role: change.role }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error ?? "変更に失敗しました");
+    }
+    startRefresh(() => router.refresh());
+  }
   const openEdit = (s: ShiftView) => setForm({ shiftId: s.id, initial: initialOf(s) });
 
   return (
@@ -228,6 +243,8 @@ export default function ShiftsClient({
           items={items}
           roleOrder={roles.map((r) => r.name)}
           title={instanceName}
+          onMove={isAdmin ? moveAssignment : undefined}
+          refreshing={refreshing}
           roleColors={roleColors}
           // The table's "+" has no time of its own: it gets the next full hour.
           onAdd={

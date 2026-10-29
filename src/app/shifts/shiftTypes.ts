@@ -3,6 +3,7 @@ import { shiftColor } from "@/lib/shiftColors";
 export type MemberOption = { id: string; name: string; image: string | null; unapproved: boolean };
 export type RoleOption = { id: string; name: string; color: string | null };
 export type AssignmentView = {
+  assignmentId: string;
   memberId: string;
   role: string;
   name: string;

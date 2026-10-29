@@ -59,6 +59,7 @@ export default async function InstanceShifts({ instanceId }: { instanceId: strin
           startsAt: s.startsAt.toISOString(),
           endsAt: s.endsAt.toISOString(),
           assignments: s.assignments.map((a) => ({
+            assignmentId: a.id,
             memberId: a.memberId,
             role: a.role,
             name: shiftMemberName(a.member, canSeeAddresses),

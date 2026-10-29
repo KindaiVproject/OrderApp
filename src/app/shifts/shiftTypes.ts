@@ -45,8 +45,3 @@ export function dateLabel(dateKey: string) {
   const weekday = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
   return `${m}/${d}(${weekday})`;
 }
-
-export function nextDateKey(dateKey: string) {
-  const [y, m, d] = dateKey.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
-}

@@ -12,7 +12,6 @@ import ShiftTable from "./ShiftTable";
 import type { PickerOption } from "./MemberPicker";
 import {
   dateLabel,
-  nextDateKey,
   roleColor,
   type MemberOption,
   type RoleOption,
@@ -237,7 +236,7 @@ export default function ShiftsClient({
                               setForm({
                                 shiftId: null,
                                 initial: {
-                                  date: nextDateKey(dateOf(shift)),
+                                  date: dateOf(shift),
                                   start: formatJstTime(new Date(shift.startsAt)),
                                   end: formatJstTime(new Date(shift.endsAt)),
                                   rows: rowsOf(shift),

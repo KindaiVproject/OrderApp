@@ -45,3 +45,12 @@ img {
   user-drag: none;
   -webkit-touch-callout: none;
 }
+
+/* Dragging past the top/bottom edge otherwise stretches the whole page
+   (including the sticky header) with Android's overscroll effect, and can
+   trigger pull-to-refresh in the installed app. This is a tap-heavy
+   operations screen, so keep the page still instead. */
+html,
+body {
+  overscroll-behavior-y: none;
+}

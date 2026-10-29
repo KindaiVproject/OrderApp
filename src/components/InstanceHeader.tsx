@@ -22,7 +22,6 @@ export default async function InstanceHeader({ instance }: { instance: InstanceM
     <Header
       userName={resolveName(email, member?.displayName, user)}
       userImage={user?.image ?? null}
-      instanceId={instance.id}
       instanceName={instance.name}
       instanceLabel={instance.label}
       isAdmin={isAdmin}

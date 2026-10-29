@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { InstanceModel } from "@generated/prisma/models";
@@ -10,7 +9,8 @@ export default function InstancePicker({ instances }: { instances: InstanceModel
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  async function select(instance: InstanceModel) {
+  // Selecting an instance sets it as current, then opens `destination` inside it.
+  async function select(instance: InstanceModel, destination = "/order") {
     if (!instance.active) return;
     setError(null);
     setBusyId(instance.id);
@@ -22,7 +22,7 @@ export default function InstancePicker({ instances }: { instances: InstanceModel
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "選択に失敗しました");
-      router.push("/order");
+      router.push(destination);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "選択に失敗しました");
@@ -66,12 +66,14 @@ export default function InstancePicker({ instances }: { instances: InstanceModel
             </span>
           </button>
           {instance.active && (
-            <Link
-              href={`/shifts?instance=${instance.id}`}
-              className="flex shrink-0 items-center rounded-lg border border-neutral-300 bg-white px-3 text-xs font-medium text-neutral-700 shadow-sm hover:bg-neutral-50"
+            <button
+              type="button"
+              disabled={busyId === instance.id}
+              onClick={() => select(instance, "/shifts/current")}
+              className="flex shrink-0 items-center rounded-lg border border-neutral-300 bg-white px-3 text-xs font-medium text-neutral-700 shadow-sm hover:bg-neutral-50 disabled:opacity-50"
             >
               シフト
-            </Link>
+            </button>
           )}
         </div>
       ))}

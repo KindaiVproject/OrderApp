@@ -67,6 +67,8 @@ export default async function InstanceShifts({ instanceId }: { instanceId: strin
             image: a.member.user?.image ?? null,
             isMe: a.member.email === email,
             unapproved: !a.member.userId,
+            // Only my own state is exposed, never other people's.
+            calendarAdded: a.member.email === email && a.calendarAddedAt !== null,
           })),
         }))}
       />

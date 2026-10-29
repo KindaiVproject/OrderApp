@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { buildIcs, type IcsEvent } from "@/lib/ics";
 
 // Builds an .ics file of the caller's upcoming shifts (all of their instances,
-// stopped ones included) and records them as "added to the calendar".
+// stopped ones included, or just `instanceId`) and records them as "added to the calendar".
 //  scope "unregistered": only shifts not yet exported (or changed since);
 //  scope "all": every upcoming shift (safe to re-import: the event UID is
 //  stable per shift+person, so calendars update events instead of duplicating).
@@ -17,7 +17,9 @@ export async function POST(request: Request) {
   const scope = body?.scope === "all" ? "all" : "unregistered";
   const now = new Date();
 
-  const upcoming = { member: { email }, shift: { endsAt: { gte: now } } };
+  // Optionally only one instance's shifts (the per-instance shift screen).
+  const instanceId = typeof body?.instanceId === "string" && body.instanceId ? body.instanceId : undefined;
+  const upcoming = { member: { email }, shift: { endsAt: { gte: now }, ...(instanceId ? { instanceId } : {}) } };
   const wanted = await prisma.shiftAssignment.findMany({
     where: scope === "all" ? upcoming : { ...upcoming, calendarAddedAt: null },
     select: { shiftId: true },

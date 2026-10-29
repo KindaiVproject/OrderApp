@@ -11,6 +11,8 @@ export type AssignmentView = {
   isMe: boolean;
   // Invited but never signed in (so no notifications can reach them).
   unapproved: boolean;
+  // Mine only: already put into my calendar and unchanged since.
+  calendarAdded: boolean;
 };
 export type ShiftView = {
   id: string;

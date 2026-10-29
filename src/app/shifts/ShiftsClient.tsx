@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import Avatar from "@/components/Avatar";
 import ConfirmModal from "@/components/ConfirmModal";
 import { formatJstDateKey, formatJstTime, nextFullHourJst } from "@/lib/datetime";
+import CalendarExportCard from "./CalendarExportCard";
 import MemberPicker from "./MemberPicker";
 import RolesModal from "./RolesModal";
 import ShiftFormModal, { type ShiftFormInitial } from "./ShiftFormModal";
@@ -106,6 +107,12 @@ export default function ShiftsClient({
     rows: s.assignments.map((a) => ({ memberId: a.memberId, role: a.role })),
   });
   // Roles higher in the Admin's priority list come first within a shift.
+  // My upcoming shifts in this instance, for the calendar buttons (per shift).
+  const myUpcoming = shifts
+    .filter((s) => new Date(s.endsAt).getTime() >= nowMs)
+    .map((s) => ({ id: s.id, mine: s.assignments.filter((a) => a.isMe) }))
+    .filter((s) => s.mine.length > 0);
+  const myUnregistered = myUpcoming.filter((s) => s.mine.some((a) => !a.calendarAdded));
   const roleColors: RoleColors = Object.fromEntries(roles.map((r) => [r.name, r.color]));
   const roleRank = (role: string) => {
     const i = roles.findIndex((r) => r.name === role);
@@ -238,6 +245,12 @@ export default function ShiftsClient({
           )}
         </div>
       </div>
+
+      <CalendarExportCard
+        upcomingCount={myUpcoming.length}
+        unregisteredCount={myUnregistered.length}
+        instanceId={instanceId}
+      />
 
       {mode === "table" ? (
         <ShiftTable

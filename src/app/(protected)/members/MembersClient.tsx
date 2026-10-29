@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { parseEmailList } from "@/lib/emails";
+import Avatar from "@/components/Avatar";
 import { memberDisplayName, type MemberWithUser } from "@/lib/memberName";
 
 export default function MembersClient({
@@ -102,19 +103,22 @@ export default function MembersClient({
               key={member.id}
               className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm"
             >
-              <div className="flex min-w-0 flex-col text-sm text-neutral-700">
-                <span className="flex items-center gap-1">
-                  {memberDisplayName(member)}
-                  {isSelf && <span className="text-xs text-neutral-400">(自分)</span>}
-                  {member.userId && (
-                    <span className="rounded bg-green-100 px-1 py-0.5 text-[9px] font-bold text-green-700">
-                      認証済み
-                    </span>
+              <div className="flex min-w-0 items-center gap-2 text-sm text-neutral-700">
+                <Avatar name={memberDisplayName(member)} image={member.user?.image} size={32} />
+                <div className="flex min-w-0 flex-col">
+                  <span className="flex items-center gap-1">
+                    {memberDisplayName(member)}
+                    {isSelf && <span className="text-xs text-neutral-400">(自分)</span>}
+                    {member.userId && (
+                      <span className="rounded bg-green-100 px-1 py-0.5 text-[9px] font-bold text-green-700">
+                        認証済み
+                      </span>
+                    )}
+                  </span>
+                  {memberDisplayName(member) !== member.email && (
+                    <span className="text-xs text-neutral-400">{member.email}</span>
                   )}
-                </span>
-                {memberDisplayName(member) !== member.email && (
-                  <span className="text-xs text-neutral-400">{member.email}</span>
-                )}
+                </div>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-[9px] text-neutral-400">権限</span>

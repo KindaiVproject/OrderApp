@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
+import Avatar from "./Avatar";
 
 const BASE_NAV_ITEMS = [
   { href: "/order", label: "注文" },
@@ -26,11 +27,15 @@ const SECONDARY_LINKS: { href: string; label: string; requires?: "manage" | "adm
 ];
 
 export default function Header({
+  userName,
+  userImage,
   instanceName,
   instanceLabel,
   isAdmin,
   canManageInstance,
 }: {
+  userName: string;
+  userImage: string | null;
   instanceName: string;
   instanceLabel: string;
   isAdmin: boolean;
@@ -130,12 +135,20 @@ export default function Header({
           </Link>
         ))}
       </div>
+      <Link
+        href="/account"
+        aria-label="アカウント設定"
+        title={`${userName}(アカウント設定)`}
+        className="ml-auto rounded-full"
+      >
+        <Avatar name={userName} image={userImage} size={28} />
+      </Link>
       <button
         type="button"
         onClick={() => signOut({ callbackUrl: "/login" })}
         aria-label="ログアウト"
         title="ログアウト"
-        className="ml-auto flex h-7 w-7 items-center justify-center rounded text-neutral-500 hover:bg-neutral-100"
+        className="flex h-7 w-7 items-center justify-center rounded text-neutral-500 hover:bg-neutral-100"
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           <path

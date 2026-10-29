@@ -21,6 +21,10 @@ export default async function InstancesPage() {
         </Link>
       )}
 
+      <Link href="/account" className="text-center text-xs text-neutral-500 underline">
+        アカウント設定
+      </Link>
+
       <LogoutButton />
     </div>
   );

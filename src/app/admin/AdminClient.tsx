@@ -5,7 +5,8 @@ import { useState } from "react";
 import type { InstanceModel, AdminInviteModel } from "@generated/prisma/models";
 import ConfirmModal from "@/components/ConfirmModal";
 import { parseEmailList } from "@/lib/emails";
-import { memberDisplayName, type MemberWithUser } from "@/lib/memberName";
+import Avatar from "@/components/Avatar";
+import { memberDisplayName, resolveName, type MemberWithUser } from "@/lib/memberName";
 
 type InstanceWithMembers = InstanceModel & { members: MemberWithUser[] };
 
@@ -13,12 +14,12 @@ export default function AdminClient({
   initialInstances,
   initialAdminInvites,
   bootstrapAdminEmail,
-  adminNames,
+  adminProfiles,
 }: {
   initialInstances: InstanceWithMembers[];
   initialAdminInvites: AdminInviteModel[];
   bootstrapAdminEmail: string;
-  adminNames: Record<string, string>;
+  adminProfiles: Record<string, { name: string | null; image: string | null }>;
 }) {
   const [instances, setInstances] = useState(initialInstances);
   const [name, setName] = useState("");
@@ -293,50 +294,53 @@ export default function AdminClient({
                 <ul className="mt-2 flex flex-col gap-2">
                   {instance.members.map((member) => (
                     <li key={member.id} className="rounded-md border border-neutral-200 bg-neutral-50 p-2">
-                      <div className="text-xs text-neutral-600">
-                        {editingMemberId === member.id ? (
-                          <div className="flex items-center gap-1">
-                            <input
-                              value={editingDisplayName}
-                              onChange={(e) => setEditingDisplayName(e.target.value)}
-                              placeholder={member.user?.name ?? member.email}
-                              autoFocus
-                              className="flex-1 rounded border border-neutral-300 px-1.5 py-0.5 text-xs"
-                            />
+                      <div className="flex items-center gap-2 text-xs text-neutral-600">
+                        <Avatar name={memberDisplayName(member)} image={member.user?.image} size={28} />
+                        <div className="min-w-0 flex-1">
+                          {editingMemberId === member.id ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                value={editingDisplayName}
+                                onChange={(e) => setEditingDisplayName(e.target.value)}
+                                placeholder={resolveName(member.email, null, member.user)}
+                                autoFocus
+                                className="flex-1 rounded border border-neutral-300 px-1.5 py-0.5 text-xs"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => saveDisplayName(instance.id, member.id)}
+                                className="text-blue-600 hover:underline"
+                              >
+                                保存
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingMemberId(null)}
+                                className="text-neutral-400 hover:underline"
+                              >
+                                キャンセル
+                              </button>
+                            </div>
+                          ) : (
                             <button
                               type="button"
-                              onClick={() => saveDisplayName(instance.id, member.id)}
-                              className="text-blue-600 hover:underline"
+                              onClick={() => startEditingDisplayName(member)}
+                              className="flex flex-col items-start text-left hover:underline"
                             >
-                              保存
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditingMemberId(null)}
-                              className="text-neutral-400 hover:underline"
-                            >
-                              キャンセル
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => startEditingDisplayName(member)}
-                            className="flex flex-col items-start text-left hover:underline"
-                          >
-                            <span className="flex items-center gap-1">
-                              {memberDisplayName(member)}
-                              {member.userId && (
-                                <span className="rounded bg-green-100 px-1 py-0.5 text-[9px] font-bold text-green-700">
-                                  認証済み
-                                </span>
+                              <span className="flex items-center gap-1">
+                                {memberDisplayName(member)}
+                                {member.userId && (
+                                  <span className="rounded bg-green-100 px-1 py-0.5 text-[9px] font-bold text-green-700">
+                                    認証済み
+                                  </span>
+                                )}
+                              </span>
+                              {memberDisplayName(member) !== member.email && (
+                                <span className="text-[10px] text-neutral-400">{member.email}</span>
                               )}
-                            </span>
-                            {memberDisplayName(member) !== member.email && (
-                              <span className="text-[10px] text-neutral-400">{member.email}</span>
-                            )}
-                          </button>
-                        )}
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       <div className="mt-2 flex items-center justify-end gap-3 border-t border-neutral-200 pt-2">
@@ -421,7 +425,7 @@ export default function AdminClient({
 
         <ul className="flex flex-col gap-2">
           <li className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-3 text-sm shadow-sm">
-            <AdminLabel email={bootstrapAdminEmail} name={adminNames[bootstrapAdminEmail]} />
+            <AdminLabel email={bootstrapAdminEmail} profile={adminProfiles[bootstrapAdminEmail]} />
             <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] font-bold text-neutral-600">
               常時管理者
             </span>
@@ -433,7 +437,7 @@ export default function AdminClient({
                 key={invite.id}
                 className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-3 text-sm shadow-sm"
               >
-                <AdminLabel email={invite.email} name={adminNames[invite.email]} />
+                <AdminLabel email={invite.email} profile={adminProfiles[invite.email]} />
                 <button
                   type="button"
                   onClick={() => setRemovingAdmin(invite)}
@@ -570,11 +574,21 @@ function DuplicateInstanceModal({
   );
 }
 
-function AdminLabel({ email, name }: { email: string; name?: string }) {
+function AdminLabel({
+  email,
+  profile,
+}: {
+  email: string;
+  profile?: { name: string | null; image: string | null };
+}) {
+  const name = profile?.name;
   return (
-    <span className="flex min-w-0 flex-col">
-      <span className="truncate font-medium text-neutral-800">{name ?? email}</span>
-      {name && <span className="truncate text-xs text-neutral-500">{email}</span>}
+    <span className="flex min-w-0 items-center gap-2">
+      <Avatar name={name ?? email} image={profile?.image} size={28} />
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate font-medium text-neutral-800">{name ?? email}</span>
+        {name && <span className="truncate text-xs text-neutral-500">{email}</span>}
+      </span>
     </span>
   );
 }

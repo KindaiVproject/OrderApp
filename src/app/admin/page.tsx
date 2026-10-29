@@ -13,18 +13,16 @@ export default async function AdminPage() {
   ]);
 
   // Same priority as members: a display name set on any instance membership,
-  // then the Google account name once the Admin has signed in.
+  // then the user's own chosen name, then the Google account name.
   const bootstrapAdminEmail = getAdminEmail();
   const adminEmails = [bootstrapAdminEmail, ...adminInvites.map((invite) => invite.email)].filter(Boolean);
-  const users = await prisma.user.findMany({
-    where: { email: { in: adminEmails } },
-    select: { email: true, name: true },
-  });
-  const adminNames: Record<string, string> = {};
+  const users = await prisma.user.findMany({ where: { email: { in: adminEmails } } });
+  const adminProfiles: Record<string, { name: string | null; image: string | null }> = {};
   for (const email of adminEmails) {
     const manual = instances.flatMap((i) => i.members).find((m) => m.email === email && m.displayName);
-    const name = manual?.displayName ?? users.find((u) => u.email === email)?.name;
-    if (name) adminNames[email] = name;
+    const user = users.find((u) => u.email === email);
+    const name = manual?.displayName ?? user?.displayName ?? user?.name ?? null;
+    if (name || user?.image) adminProfiles[email] = { name, image: user?.image ?? null };
   }
 
   return (
@@ -32,7 +30,7 @@ export default async function AdminPage() {
       initialInstances={instances}
       initialAdminInvites={adminInvites}
       bootstrapAdminEmail={bootstrapAdminEmail}
-      adminNames={adminNames}
+      adminProfiles={adminProfiles}
     />
   );
 }

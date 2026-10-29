@@ -61,7 +61,8 @@
 |---|---|---|---|
 | `/login` | ログイン | 全員 | 「Googleでログイン」ボタンのみ |
 | `/` | 振り分け | - | 未ログイン→`/login`、インスタンス選択済み→`/order`、未選択→`/instances` |
-| `/instances` | インスタンス選択 | ログイン済 | 招待されたインスタンスの一覧から選択。**「ログアウト」リンクあり**(未招待でもここから抜けられる)。選択はCookie(`current_instance_id`、30日、httpOnly)に保存。Adminには `/admin` へのリンク |
+| `/instances` | インスタンス選択 | ログイン済 | 招待されたインスタンスの一覧から選択。**「ログアウト」リンクあり**(未招待でもここから抜けられる)。選択はCookie(`current_instance_id`、30日、httpOnly)に保存。Adminには `/admin` へのリンク。「アカウント設定」リンクあり |
+| `/account` | アカウント設定 | ログイン済 | Googleアイコン・メールアドレス(本人のもの)を表示し、**自分の表示名**(30文字以内)を設定する。空にするとGoogleアカウント名に戻る。インスタンスを選択していなくても開ける(`(protected)` の外)。ヘッダー右端のアイコンから遷移 |
 | `/order` | 注文 | メンバー | 商品カード(画像+商品名、正方形)をタップで数量+1。グリッドはスマホ3列/幅640px以上4列/768px以上5列で、スクロール量を減らしている。カード上の ＋/− で増減。「客の特徴(任意)」「支払い方法(必須)」を入力して「注文を確定する」 |
 | `/kitchen` | 厨房 | メンバー | 待機中の注文を古い順に表示。**2.5秒ごとにポーリング更新**(編集/完了/キャンセルのモーダル表示中は停止)。右上に待機中の件数を大きく表示(0件=グレー、1〜4件=黄、5件以上=赤。しきい値は `KitchenClient.tsx` の `WAITING_ALERT_COUNT`)。「作るべき個数」(商品名ごとの合計、円形アイコン付き)、チェックボックスで複数選択→「まとめて完了」、個別の「提供完了」「編集」「キャンセル」 |
 | `/history` | 注文履歴 | メンバー | 全注文を新しい順に表示(状態バッジ: 待機中/提供済み/キャンセル済み)。キャンセル済み以外は「編集」可。**キャンセル操作は厨房画面のみ**(履歴からは不可)。「CSV出力」ボタン |
@@ -74,7 +75,7 @@
 ### 5.1 共通UI
 
 - ヘッダーは画面上部に固定(sticky)。ナビ(スライドするインジケーター付き): 注文 / 厨房 / 注文履歴 / 商品 / 統計。その横の別グループに 切替 / メンバー・編集履歴(インスタンス管理者とAdminのみ)/ Admin(Adminのみ)。こちらは現在のページが反転表示されるだけでインジケーターは使わない(タブ数が増えて折り返し、表示が崩れるのを防ぐため)。インジケーターは折り返し時も位置・高さを個別に追従し、一致するタブがないページでは非表示。
-- 右側: 「切替」(インスタンス選択へ)、「Admin」(Adminのみ)、ログアウト(アイコンのみ)。
+- 右側: 自分のGoogleアイコン(押すと `/account`)、ログアウト(アイコンのみ)。アイコンがない/読み込めない場合は名前の頭文字の丸を表示(`components/Avatar.tsx`)。
 - モーダルは `fixed` + `z-30`(ヘッダー `z-20` より上)。
 - **ブラウザ標準の `window.prompt` / `window.confirm` は使わない**(利用環境で動作しない)。確認は `ConfirmModal` またはアプリ内モーダルで行う。
 - 画面端まで引っ張ったときにページ全体(ヘッダー含む)が伸びる Android のオーバースクロール効果と、プルダウン更新は `overscroll-behavior-y: none` で無効化している(`globals.css`)。
@@ -120,8 +121,8 @@
   - **削除**: 商品・注文・メンバー・編集履歴を**すべて完全削除**(元に戻せない)。インスタンス名の入力による確認が必要。
 - **メンバー**: インスタンスごとのアコーディオン(**初期は折りたたみ**)。
   - 招待: メールアドレスをカンマ・空白(混在可)区切りで複数同時に入力可(`src/lib/emails.ts`)。まだログインしていないアドレスも事前に招待できる。
-  - 表示名: 優先順位は **管理者が設定した表示名 → Googleアカウント名(ログイン後) → メールアドレス**。名前クリックでインライン編集。ログイン済みの人には「認証済み」バッジ。
-  - Admin 一覧(常時管理者・招待された Admin)も同じ基準で名前を表示し、名前がある場合はメールアドレスを下に小さく併記する。Admin 自身の名前は、いずれかのインスタンスのメンバーに設定された表示名 → Googleアカウント名(ログイン後) → メールアドレスの順。専用の名前欄は持たない。
+  - 表示名: 優先順位は **管理者が設定した表示名(`InstanceMember.displayName`、インスタンスごと) → 本人が `/account` で設定した表示名(`User.displayName`) → Googleアカウント名(`User.name`、ログイン後) → メールアドレス**(`src/lib/memberName.ts` の `resolveName`)。名前クリックでインライン編集。名前の左にGoogleアイコンを表示。ログイン済みの人には「認証済み」バッジ。
+  - Admin 一覧(常時管理者・招待された Admin)も同じ基準で名前を表示し、名前がある場合はメールアドレスを下に小さく併記する。Admin 自身の名前は、いずれかのインスタンスのメンバーに設定された表示名 → 本人設定の表示名 → Googleアカウント名 → メールアドレスの順。Admin 専用の名前欄は持たない。
   - 権限: 「一般 ⇔ インスタンス管理者」の切替。メンバー削除。
 - **管理者(Admin)**: メールアドレスの複数同時招待、権限の削除。`ADMIN_EMAIL` の人は削除不可(常時管理者)。
 
@@ -144,7 +145,7 @@
 
 | モデル | 主な項目 | 備考 |
 |---|---|---|
-| `User` / `Account` / `Session` / `VerificationToken` | Auth.js 標準 | DBセッション |
+| `User` / `Account` / `Session` / `VerificationToken` | Auth.js 標準 | DBセッション。`User.displayName` は本人が設定する表示名(Auth.js 標準項目ではない追加列) |
 | `AdminInvite` | email(unique) | Admin 追加用 |
 | `Instance` | name, label, active, createdAt | 削除すると配下をカスケード削除 |
 | `InstanceMember` | instanceId, email, userId?, isInstanceAdmin, displayName? | `(instanceId, email)` が unique。招待はメールで照合し、初回ログイン時に `userId` を紐付け(`src/auth.ts` の `signIn` イベント) |
@@ -153,7 +154,7 @@
 | `OrderItem` | productId?, productName, imageUrl?, unitPrice, quantity | スナップショット保持。商品削除時 `productId` は null に |
 | `EditLog` | instanceId, entityType(ORDER/PRODUCT/MEMBER), entityId, action(CREATE/EDIT/CANCEL/COMPLETE/DELETE/INVITE), summary, actorEmail, createdAt | `(instanceId, createdAt)` に index |
 
-マイグレーションは `prisma/migrations/`(init → 注文キャンセル+明細画像 → インスタンス管理者+編集履歴 → メンバー表示名)。
+マイグレーションは `prisma/migrations/`(init → 注文キャンセル+明細画像 → インスタンス管理者+編集履歴 → メンバー表示名 → ユーザー表示名)。
 
 ## 9. CSV出力(`GET /api/orders/export`)
 
@@ -186,6 +187,7 @@
 | PATCH / DELETE | `/api/products/[id]` | メンバー | 編集 / 論理削除 |
 | POST | `/api/products/upload` | メンバー | 画像アップロード(multipart、5MB以下) |
 | POST | `/api/instances/select` | ログイン済 | 現在のインスタンスをCookieに設定 |
+| PATCH | `/api/account` | ログイン済 | 自分の表示名(`User.displayName`)を更新。30文字以内、空でクリア |
 | POST | `/api/admin/instances` | Admin | インスタンス作成 |
 | PATCH / DELETE | `/api/admin/instances/[id]` | Admin | 名前・ラベル・稼働状態の更新 / 削除 |
 | POST | `/api/admin/instances/[id]/duplicate` | Admin | 複製 |
@@ -250,6 +252,7 @@ npm run db:seed    # サンプルインスタンス作成(ADMIN_EMAIL が必要)
 - 厨房画面は **ポーリング(2.5秒)** による更新で、WebSocket等のリアルタイム通信ではない。同時操作の競合(同じ注文を同時に編集等)は最後の書き込みが勝つ。
 - 編集履歴は直近300件のみ表示。ページング・検索・絞り込みは未実装。
 - 注文のAPI物理削除(`DELETE /api/orders/[id]`)はUIから使っておらず、履歴にも残らない。不要なら削除を検討。
+- **メールアドレスの可視範囲**: 他人のメールアドレスが見えるのは Admin 画面とメンバー管理(`/members`)・編集履歴(`/edit-log`)のみで、いずれもインスタンス管理者・Admin 限定。一般メンバーが開く画面・APIには他人のメールアドレスは含まれない(自分のものは `/instances`・`/account` に表示)。新しい画面を足すときもこの前提を守ること。
 - インスタンス管理者はメンバーの招待と権限の付与・剥奪ができるが、メンバーの削除・表示名変更はできない(Admin のみ)。
 - 複製では表示名・インスタンス管理者の権限は引き継がれない。
 - Admin の招待/削除、インスタンスの作成・停止・削除は編集履歴に残らない。

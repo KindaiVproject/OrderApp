@@ -1,19 +1,19 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getMemberInstance, isAdminEmail } from "@/lib/instance";
+import { canEditShifts, getMemberInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
 import { formatJstDateKey } from "@/lib/datetime";
 import { formatShiftRange, parseShiftInput } from "@/lib/shifts";
 
-// Creating/editing shifts is global-Admin only.
+// Creating/editing shifts: global Admins and the instance's own admins.
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const instance = await getMemberInstance(typeof body?.instanceId === "string" ? body.instanceId : "");
   if (!instance) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const session = await auth();
-  if (!(await isAdminEmail(session?.user?.email))) {
-    return NextResponse.json({ error: "シフトの追加は管理者のみ可能です" }, { status: 403 });
+  if (!(await canEditShifts(instance.id, session?.user?.email))) {
+    return NextResponse.json({ error: "シフトの追加はAdminまたはインスタンス管理者のみ可能です" }, { status: 403 });
   }
 
   const members = await prisma.instanceMember.findMany({

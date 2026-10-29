@@ -94,6 +94,21 @@ export async function isInstanceAdmin(
   return member?.isInstanceAdmin ?? false;
 }
 
+// Who may add/edit/delete an instance's shifts and shift roles: global Admins
+// and that instance's own admins. Unlike canManageMembers this does not need the
+// instance to be active — shifts stay editable on a stopped instance.
+export async function canEditShifts(
+  instanceId: string,
+  email: string | null | undefined,
+): Promise<boolean> {
+  if (!email) return false;
+  if (await isAdminEmail(email)) return true;
+  const member = await prisma.instanceMember.findUnique({
+    where: { instanceId_email: { instanceId, email } },
+  });
+  return member?.isInstanceAdmin ?? false;
+}
+
 // Who may invite members and grant/revoke instance-admin for an instance:
 // global Admins, or that instance's own admins while it is active (a
 // stopped instance is locked for everyone except global Admins).

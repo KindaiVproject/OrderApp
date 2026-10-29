@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { canManageMembers, isAdminEmail } from "@/lib/instance";
+import { canEditShifts, canManageMembers } from "@/lib/instance";
 import { currentTimeMs } from "@/lib/datetime";
 import { shiftMemberName } from "@/lib/memberName";
 import { prisma } from "@/lib/prisma";
@@ -11,7 +11,7 @@ export default async function InstanceShifts({ instanceId }: { instanceId: strin
   const session = await auth();
   const email = session?.user?.email ?? "";
 
-  const [instance, shifts, members, roles, isAdmin, canSeeAddresses] = await Promise.all([
+  const [instance, shifts, members, roles, canEdit, canSeeAddresses] = await Promise.all([
     prisma.instance.findUnique({ where: { id: instanceId } }),
     prisma.shift.findMany({
       where: { instanceId },
@@ -24,7 +24,8 @@ export default async function InstanceShifts({ instanceId }: { instanceId: strin
       orderBy: { createdAt: "asc" },
     }),
     prisma.shiftRole.findMany({ where: { instanceId }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }),
-    isAdminEmail(email),
+    // Global Admins and this instance's own admins may edit shifts.
+    canEditShifts(instanceId, email),
     canManageMembers(instanceId, email),
   ]);
 
@@ -34,20 +35,20 @@ export default async function InstanceShifts({ instanceId }: { instanceId: strin
     <>
       {instance && !instance.active && (
         <p className="mx-auto w-full max-w-3xl px-4 pt-4 text-xs text-amber-700">
-          このインスタンスは停止中です。シフトのみ閲覧{isAdmin ? "・編集" : ""}できます。
+          このインスタンスは停止中です。シフトのみ閲覧{canEdit ? "・編集" : ""}できます。
         </p>
       )}
       <ShiftsClient
         instanceId={instanceId}
         instanceName={instance?.name ?? ""}
-        isAdmin={isAdmin}
+        canEdit={canEdit}
         nowMs={currentTimeMs()}
-        // Only the Admin's form needs the pick-list of members.
+        // Only an editor's form needs the pick-list of members.
         members={
-          isAdmin
+          canEdit
             ? members.map((m) => ({
                 id: m.id,
-                name: shiftMemberName(m, true),
+                name: shiftMemberName(m, canSeeAddresses),
                 image: m.user?.image ?? null,
                 unapproved: !m.userId,
               }))

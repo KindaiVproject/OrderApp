@@ -5,7 +5,7 @@ import { SHIFT_COLORS, shiftColor } from "@/lib/shiftColors";
 import { MAX_ROLE_LENGTH } from "@/lib/shifts";
 import type { RoleOption } from "./shiftTypes";
 
-// Admin: register, rename, recolor, reorder and remove the roles the shift form offers
+// Editors (Admin / instance admin): register, rename, recolor, reorder and remove the roles the shift form offers
 // for this instance. The order is the display priority (top of the schedule
 // table, first in the pick-list).
 export default function RolesModal({

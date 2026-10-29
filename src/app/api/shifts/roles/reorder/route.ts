@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getMemberInstance, isAdminEmail } from "@/lib/instance";
+import { canEditShifts, getMemberInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
 
@@ -12,8 +12,8 @@ export async function POST(request: Request) {
   const instance = await getMemberInstance(typeof body?.instanceId === "string" ? body.instanceId : "");
   if (!instance) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const session = await auth();
-  if (!(await isAdminEmail(session?.user?.email))) {
-    return NextResponse.json({ error: "役割の並び替えは管理者のみ可能です" }, { status: 403 });
+  if (!(await canEditShifts(instance.id, session?.user?.email))) {
+    return NextResponse.json({ error: "役割の並び替えはAdminまたはインスタンス管理者のみ可能です" }, { status: 403 });
   }
 
   const ids: unknown = body?.ids;

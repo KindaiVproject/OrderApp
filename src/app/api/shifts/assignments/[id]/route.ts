@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getMemberInstance, isAdminEmail } from "@/lib/instance";
+import { canEditShifts, getMemberInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
 import { formatJstDateKey, formatJstTime } from "@/lib/datetime";
@@ -16,9 +16,6 @@ import { resolveName } from "@/lib/memberName";
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
-  if (!(await isAdminEmail(session?.user?.email))) {
-    return NextResponse.json({ error: "シフトの編集は管理者のみ可能です" }, { status: 403 });
-  }
 
   const assignment = await prisma.shiftAssignment.findUnique({
     where: { id },
@@ -26,6 +23,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   });
   const instance = assignment ? await getMemberInstance(assignment.shift.instanceId) : null;
   if (!assignment || !instance) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (!(await canEditShifts(instance.id, session?.user?.email))) {
+    return NextResponse.json({ error: "シフトの編集はAdminまたはインスタンス管理者のみ可能です" }, { status: 403 });
+  }
   const { shift } = assignment;
 
   const body = await request.json().catch(() => null);

@@ -28,7 +28,7 @@ const timeRange = (s: ShiftView) =>
 export default function ShiftsClient({
   instanceId,
   instanceName,
-  isAdmin,
+  canEdit,
   nowMs,
   members,
   roles,
@@ -36,7 +36,8 @@ export default function ShiftsClient({
 }: {
   instanceId: string;
   instanceName: string;
-  isAdmin: boolean;
+  // Global Admin or this instance's admin: may add/edit/delete shifts and roles.
+  canEdit: boolean;
   // Server render time, so "finished" shifts are decided without Date.now() here.
   nowMs: number;
   members: MemberOption[];
@@ -130,7 +131,7 @@ export default function ShiftsClient({
     <div className={`mx-auto flex w-full flex-col gap-4 p-4 ${mode === "table" ? "max-w-6xl" : "max-w-3xl"}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-base font-semibold text-neutral-800">シフト</h1>
-        {isAdmin && (
+        {canEdit && (
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -243,12 +244,12 @@ export default function ShiftsClient({
           items={items}
           roleOrder={roles.map((r) => r.name)}
           title={instanceName}
-          onMove={isAdmin ? moveAssignment : undefined}
+          onMove={canEdit ? moveAssignment : undefined}
           refreshing={refreshing}
           roleColors={roleColors}
           // The table's "+" has no time of its own: it gets the next full hour.
           onAdd={
-            isAdmin
+            canEdit
               ? (initial) =>
                   setForm({
                     shiftId: null,
@@ -257,7 +258,7 @@ export default function ShiftsClient({
               : undefined
           }
           onEdit={
-            isAdmin
+            canEdit
               ? (shiftId) => {
                   const shift = shifts.find((s) => s.id === shiftId);
                   if (shift) openEdit(shift);
@@ -289,7 +290,7 @@ export default function ShiftsClient({
                           </span>
                         )}
                       </span>
-                      {isAdmin && (
+                      {canEdit && (
                         <span className="flex items-center gap-3 text-xs">
                           <button
                             type="button"

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getMemberInstance, isAdminEmail } from "@/lib/instance";
+import { canEditShifts, getMemberInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
 import { formatJstDateKey } from "@/lib/datetime";
@@ -10,14 +10,17 @@ import { formatShiftRange, parseShiftInput } from "@/lib/shifts";
 // cookie), so the all-instances shift page can edit any instance's shifts.
 async function authorize(shiftId: string) {
   const session = await auth();
-  if (!(await isAdminEmail(session?.user?.email))) {
-    return {
-      error: NextResponse.json({ error: "シフトの編集は管理者のみ可能です" }, { status: 403 }),
-    };
-  }
   const shift = await prisma.shift.findUnique({ where: { id: shiftId }, include: { assignments: true } });
   const instance = shift ? await getMemberInstance(shift.instanceId) : null;
   if (!shift || !instance) return { error: NextResponse.json({ error: "not found" }, { status: 404 }) };
+  if (!(await canEditShifts(instance.id, session?.user?.email))) {
+    return {
+      error: NextResponse.json(
+        { error: "シフトの編集はAdminまたはインスタンス管理者のみ可能です" },
+        { status: 403 },
+      ),
+    };
+  }
   return { instance, shift, email: session?.user?.email };
 }
 

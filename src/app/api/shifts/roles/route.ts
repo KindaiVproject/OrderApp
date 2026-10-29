@@ -1,19 +1,19 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getMemberInstance, isAdminEmail } from "@/lib/instance";
+import { canEditShifts, getMemberInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
 import { SHIFT_COLOR_KEYS } from "@/lib/shiftColors";
 import { MAX_ROLE_LENGTH } from "@/lib/shifts";
 
-// Registering shift roles is global-Admin only, like the shifts themselves.
+// Registering shift roles: global Admins and the instance's own admins, like the shifts.
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const instance = await getMemberInstance(typeof body?.instanceId === "string" ? body.instanceId : "");
   if (!instance) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const session = await auth();
-  if (!(await isAdminEmail(session?.user?.email))) {
-    return NextResponse.json({ error: "役割の登録は管理者のみ可能です" }, { status: 403 });
+  if (!(await canEditShifts(instance.id, session?.user?.email))) {
+    return NextResponse.json({ error: "役割の登録はAdminまたはインスタンス管理者のみ可能です" }, { status: 403 });
   }
 
   const name = typeof body?.name === "string" ? body.name.trim() : "";

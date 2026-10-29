@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getMemberInstance, isAdminEmail } from "@/lib/instance";
+import { canEditShifts, getMemberInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
 import { SHIFT_COLORS, SHIFT_COLOR_KEYS } from "@/lib/shiftColors";
@@ -12,12 +12,12 @@ import { MAX_ROLE_LENGTH } from "@/lib/shifts";
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
-  if (!(await isAdminEmail(session?.user?.email))) {
-    return NextResponse.json({ error: "役割の編集は管理者のみ可能です" }, { status: 403 });
-  }
   const role = await prisma.shiftRole.findUnique({ where: { id } });
   const instance = role ? await getMemberInstance(role.instanceId) : null;
   if (!role || !instance) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (!(await canEditShifts(instance.id, session?.user?.email))) {
+    return NextResponse.json({ error: "役割の編集はAdminまたはインスタンス管理者のみ可能です" }, { status: 403 });
+  }
 
   const body = await request.json().catch(() => null);
   const data: { name?: string; color?: string | null } = {};
@@ -77,13 +77,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
-  if (!(await isAdminEmail(session?.user?.email))) {
-    return NextResponse.json({ error: "役割の削除は管理者のみ可能です" }, { status: 403 });
-  }
-
   const role = await prisma.shiftRole.findUnique({ where: { id } });
   const instance = role ? await getMemberInstance(role.instanceId) : null;
   if (!role || !instance) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (!(await canEditShifts(instance.id, session?.user?.email))) {
+    return NextResponse.json({ error: "役割の削除はAdminまたはインスタンス管理者のみ可能です" }, { status: 403 });
+  }
 
   await prisma.shiftRole.delete({ where: { id } });
   await logEdit({

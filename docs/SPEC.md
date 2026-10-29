@@ -79,6 +79,13 @@
 - **ブラウザ標準の `window.prompt` / `window.confirm` は使わない**(利用環境で動作しない)。確認は `ConfirmModal` またはアプリ内モーダルで行う。
 - 画像はドラッグ不可、長押しメニュー(保存/別タブで開く)をできる限り抑止(`globals.css` の `-webkit-touch-callout` と `Providers.tsx` の `contextmenu` 抑止)。テキスト選択は入力欄以外で無効。
 
+### 5.1.1 アプリとしてのインストール(PWA)
+
+- `src/app/manifest.ts` が Web App Manifest(`/manifest.webmanifest`)を配信する。`display: standalone`、`theme_color: #171717`、アイコンは `public/icons/` の PNG(192 / 512 / maskable 512)。iOS 用は `src/app/apple-icon.png`。
+- これがないと Android Chrome は「ショートカット」しか作れず、起動時に Chrome の操作バー(Chromeで開く等)が出る。マニフェストがあるとインストールが通常のアプリ(WebAPK)になり、バーなしで全画面表示される。
+- アイコンは `public/logo.svg` から `rsvg-convert` で生成した(maskable は背景を全面ダークにし、ロゴを中央約62%に縮小)。ロゴ変更時は同様に再生成すること。
+- 注意: WebAPK の作成には端末側で Google Play 開発者サービスが必要。メーカー製タブレットなどで利用できない場合、マニフェストがあっても Chrome が従来のショートカットにフォールバックし、バーが残ることがある。
+
 ### 5.2 注文の状態
 
 `WAITING`(待機中) → `COMPLETED`(提供済み)/ `CANCELLED`(キャンセル)

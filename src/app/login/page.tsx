@@ -8,7 +8,7 @@ export default async function LoginPage() {
   if (session?.user) redirect("/instances");
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-4">
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4">
       <h1 className="flex items-center gap-2 text-lg font-semibold text-neutral-800">
         <Image src="/logo.svg" alt="" width={28} height={28} className="rounded-[6px]" />
         注文管理

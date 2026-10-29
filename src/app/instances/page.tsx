@@ -9,7 +9,7 @@ export default async function InstancesPage() {
   const isAdmin = await isAdminEmail(session.user!.email);
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-4 p-4">
+    <div className="mx-auto flex flex-1 w-full max-w-md flex-col justify-center gap-4 p-4">
       <h1 className="text-base font-semibold text-neutral-800">インスタンスを選択</h1>
       <p className="text-xs text-neutral-500">{session.user!.email} でログイン中</p>
 

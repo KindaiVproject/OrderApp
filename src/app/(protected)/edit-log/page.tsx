@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { requireCurrentInstance, isInstanceAdmin } from "@/lib/instance";
+import { resolveName } from "@/lib/memberName";
 import { prisma } from "@/lib/prisma";
 import { formatJstDateTime } from "@/lib/datetime";
 
@@ -41,6 +42,25 @@ export default async function EditLogPage() {
     take: 300,
   });
 
+  // Show "name (email)" with the same name priority as the member lists. The
+  // current member's per-instance name wins; people who were removed since
+  // fall back to their account, then to the bare email.
+  const actorEmails = [...new Set(logs.map((log) => log.actorEmail))];
+  const [members, users] = await Promise.all([
+    prisma.instanceMember.findMany({
+      where: { instanceId: instance.id, email: { in: actorEmails } },
+      include: { user: true },
+    }),
+    prisma.user.findMany({ where: { email: { in: actorEmails } } }),
+  ]);
+  const actorLabels = new Map<string, string>();
+  for (const email of actorEmails) {
+    const member = members.find((m) => m.email === email);
+    const user = member?.user ?? users.find((u) => u.email === email);
+    const name = resolveName(email, member?.displayName, user);
+    actorLabels.set(email, name === email ? email : `${name}(${email})`);
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
       <h1 className="text-base font-semibold text-neutral-800">編集履歴</h1>
@@ -59,7 +79,7 @@ export default async function EditLogPage() {
               <span className={`rounded px-1.5 py-0.5 font-medium ${ACTION_STYLES[log.action] ?? ""}`}>
                 {ACTION_LABELS[log.action] ?? log.action}
               </span>
-              <span>{log.actorEmail}</span>
+              <span>{actorLabels.get(log.actorEmail) ?? log.actorEmail}</span>
             </div>
             <p className="mt-1 text-sm text-neutral-700">{log.summary}</p>
           </li>

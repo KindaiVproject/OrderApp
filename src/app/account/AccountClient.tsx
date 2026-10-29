@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Avatar from "@/components/Avatar";
+import DeleteAccountSection, { type DeletionInfo } from "./DeleteAccountSection";
 import NotificationSettings from "./NotificationSettings";
 
 const MAX_LENGTH = 30;
@@ -16,6 +17,7 @@ export default function AccountClient({
   hasInstance,
   initialReminder30,
   vapidPublicKey,
+  deletion,
 }: {
   email: string;
   googleName: string | null;
@@ -24,6 +26,7 @@ export default function AccountClient({
   hasInstance: boolean;
   initialReminder30: boolean;
   vapidPublicKey: string;
+  deletion: DeletionInfo;
 }) {
   const router = useRouter();
   const [displayName, setDisplayName] = useState(initialDisplayName);
@@ -117,6 +120,8 @@ export default function AccountClient({
       </form>
 
       <NotificationSettings vapidPublicKey={vapidPublicKey} initialReminder30={initialReminder30} />
+
+      <DeleteAccountSection email={email} name={shownName} image={image} info={deletion} />
     </div>
   );
 }

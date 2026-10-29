@@ -7,15 +7,18 @@ import type { ShiftFormInitial } from "./ShiftFormModal";
 import { assignLanes, buildSchedule, hhmm, scheduleDates, type ScheduleMode } from "./scheduleLayout";
 import { dateLabel, roleBorder, roleColor, type RoleColors, type ShiftItem } from "./shiftTypes";
 
-// Minimum width per hour. The track is flex-1, so on a wide parent the hours
-// stretch to fill it; the room comes from the parent, not from fat cells.
-const HOUR_PX = 72;
+// Minimum width per hour, and the room a bar needs for an icon, a name and a
+// time range. They are the same number on purpose: a one-hour bar then fits its
+// hour exactly, so back-to-back one-hour shifts (9-10, 10-11) sit side by side
+// instead of being pushed onto a second line. The track is flex-1, so on a wide
+// parent the hours stretch to fill it; the room comes from the parent.
+const HOUR_PX = 108;
 const LABEL_PX = 120;
 const LANE_PX = 56;
 const BAR_INSET_PX = 5;
-// Even a 15-minute shift gets a readable bar; lane packing uses this visual
-// length so neighbours stack instead of overlapping.
 const MIN_BAR_PX = 108;
+// Shorter shifts get a bar at least this wide; lane packing treats them as
+// that long, so they stack only when they would really collide.
 const MIN_BAR_MINUTES = Math.ceil((MIN_BAR_PX / HOUR_PX) * 60);
 
 // シフト表: one day at a time with a time axis across. Rows are roles by

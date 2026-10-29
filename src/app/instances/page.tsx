@@ -18,8 +18,10 @@ export default async function InstancesPage() {
       {/* my-auto centers a short page but, unlike justify-center, lets a long
           instance list grow downward and scroll instead of clipping the top. */}
       <div className="my-auto flex flex-col gap-4">
-        <h1 className="text-base font-semibold text-neutral-800">インスタンスを選択</h1>
-        <p className="text-xs text-neutral-500">{session.user!.email} でログイン中</p>
+        <h1 className="text-base font-semibold text-neutral-800">トップ</h1>
+        <p className="text-xs text-neutral-500">
+          {session.user!.email} でログイン中。入るインスタンスを選んでください。
+        </p>
 
         <InstancePicker instances={instances} />
 

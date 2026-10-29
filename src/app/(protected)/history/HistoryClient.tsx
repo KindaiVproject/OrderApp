@@ -7,6 +7,7 @@ import type { PaymentMethod } from "@generated/prisma/enums";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payment";
 import { formatJstDateTime } from "@/lib/datetime";
 import EditOrderModal, { type OrderWithItems as Order } from "@/components/EditOrderModal";
+import ScrollToTopButton from "@/components/ScrollToTopButton";
 
 const STATUS_LABELS: Record<string, string> = {
   WAITING: "待機中",
@@ -108,6 +109,7 @@ export default function HistoryClient({
           }}
         />
       )}
+      <ScrollToTopButton />
     </div>
   );
 }

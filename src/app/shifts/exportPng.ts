@@ -231,10 +231,15 @@ export async function renderSchedulePng(opts: {
   return canvas;
 }
 
-export async function downloadSchedulePng(opts: Parameters<typeof renderSchedulePng>[0]) {
+async function schedulePngBlob(opts: Parameters<typeof renderSchedulePng>[0]): Promise<Blob> {
   const canvas = await renderSchedulePng(opts);
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
   if (!blob) throw new Error("画像を作成できませんでした");
+  return blob;
+}
+
+export async function downloadSchedulePng(opts: Parameters<typeof renderSchedulePng>[0]) {
+  const blob = await schedulePngBlob(opts);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -243,4 +248,18 @@ export async function downloadSchedulePng(opts: Parameters<typeof renderSchedule
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+// Whether this browser can put an image on the clipboard (needs HTTPS or
+// localhost, the async Clipboard API and ClipboardItem).
+export function canCopyImage(): boolean {
+  return typeof ClipboardItem !== "undefined" && typeof navigator !== "undefined" && Boolean(navigator.clipboard?.write);
+}
+
+// Copies the same PNG to the clipboard so it can be pasted straight into a chat
+// or doc. The ClipboardItem takes a *promise* of the blob: it is created inside
+// the click handler (keeping the user gesture alive, which Safari insists on)
+// while the canvas is still being drawn.
+export async function copySchedulePng(opts: Parameters<typeof renderSchedulePng>[0]) {
+  await navigator.clipboard.write([new ClipboardItem({ "image/png": schedulePngBlob(opts) })]);
 }

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Avatar from "@/components/Avatar";
 import { isDesktopOs } from "@/lib/platform";
-import { downloadSchedulePng } from "./exportPng";
+import { canCopyImage, copySchedulePng, downloadSchedulePng } from "./exportPng";
 import type { ShiftFormInitial } from "./ShiftFormModal";
 import {
   assignLanes,
@@ -95,6 +95,8 @@ export default function ShiftTable({
   const [mode, setMode] = useState<ScheduleMode>("role");
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const copyable = useSyncExternalStore(subscribeNever, canCopyImage, () => false);
   const [axisRef, trackPx] = useElementWidth();
   const desktop = useSyncExternalStore(subscribeNever, isDesktopOs, () => false);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -181,18 +183,40 @@ export default function ShiftTable({
     }
   }
 
+  // The image options for the day on screen (without an Admin's empty add rows).
+  const pngOptions = () => ({
+    layout: buildSchedule(items, date, mode, roleOrder, false),
+    mode,
+    date,
+    title,
+    roleColors,
+  });
+
+  async function copyPng() {
+    setExporting(true);
+    setExportError(null);
+    setCopied(false);
+    try {
+      await copySchedulePng(pngOptions());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch (e) {
+      console.error("copy shift image failed", e);
+      setExportError(
+        e instanceof Error && e.message === "画像を作成できませんでした"
+          ? e.message
+          : "コピーできませんでした。ブラウザの許可を確認するか、「PNGで保存」を使ってください",
+      );
+    } finally {
+      setExporting(false);
+    }
+  }
+
   async function exportPng() {
     setExporting(true);
     setExportError(null);
     try {
-      // The export leaves out the empty rows an Admin sees for adding.
-      await downloadSchedulePng({
-        layout: buildSchedule(items, date, mode, roleOrder, false),
-        mode,
-        date,
-        title,
-        roleColors,
-      });
+      await downloadSchedulePng(pngOptions());
     } catch (e) {
       setExportError(e instanceof Error ? e.message : "画像を作成できませんでした");
     } finally {
@@ -229,14 +253,26 @@ export default function ShiftTable({
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          onClick={exportPng}
-          disabled={exporting}
-          className="ml-auto rounded border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
-        >
-          {exporting ? "作成中…" : `${dateLabel(date)}をPNGで保存`}
-        </button>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {copyable && (
+            <button
+              type="button"
+              onClick={copyPng}
+              disabled={exporting}
+              className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+            >
+              {copied ? "コピーしました" : `${dateLabel(date)}をコピー`}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={exportPng}
+            disabled={exporting}
+            className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+          >
+            {exporting ? "作成中…" : `${dateLabel(date)}をPNGで保存`}
+          </button>
+        </div>
       </div>
       {exportError && <p className="text-xs text-red-600">{exportError}</p>}
       {moveError && <p className="text-xs text-red-600">{moveError}</p>}

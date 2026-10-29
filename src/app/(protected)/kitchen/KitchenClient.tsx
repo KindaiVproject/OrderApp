@@ -8,6 +8,7 @@ import { formatJstTime } from "@/lib/datetime";
 import EditOrderModal, { type OrderWithItems as Order } from "@/components/EditOrderModal";
 import CompleteOrderModal from "@/components/CompleteOrderModal";
 import ConfirmModal from "@/components/ConfirmModal";
+import ScrollToTopButton from "@/components/ScrollToTopButton";
 
 const POLL_INTERVAL_MS = 2500;
 // Waiting orders at or above this count turn the counter red.
@@ -255,6 +256,7 @@ export default function KitchenClient({
           }}
         />
       )}
+      <ScrollToTopButton />
     </div>
   );
 }

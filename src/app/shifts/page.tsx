@@ -31,7 +31,7 @@ export default async function ShiftsPage({ searchParams }: { searchParams: Promi
           </Link>
         )}
         <Link href="/instances" className="font-medium text-neutral-600 hover:underline">
-          インスタンス選択
+          トップ
         </Link>
         <Link href="/account" className="font-medium text-neutral-600 hover:underline">
           アカウント設定

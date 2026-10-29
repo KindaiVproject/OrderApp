@@ -39,6 +39,7 @@ export default async function InstanceShifts({ instanceId }: { instanceId: strin
       )}
       <ShiftsClient
         instanceId={instanceId}
+        instanceName={instance?.name ?? ""}
         isAdmin={isAdmin}
         nowMs={currentTimeMs()}
         // Only the Admin's form needs the pick-list of members.

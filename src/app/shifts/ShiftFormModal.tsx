@@ -152,7 +152,7 @@ export default function ShiftFormModal({
           <span className="text-xs text-neutral-600">担当と役割</span>
           {roles.length === 0 && (
             <p className="text-[11px] text-amber-700">
-              役割が未登録です。いったん閉じて「役割を登録」から追加してください。
+              役割が未登録です。いったん閉じて「役割の設定」から追加してください。
             </p>
           )}
           {rows.map((row, i) => (

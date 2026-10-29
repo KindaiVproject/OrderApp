@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import Avatar from "@/components/Avatar";
-import { formatJstDateKey, formatJstTime } from "@/lib/datetime";
-import { timeToMinutes } from "@/lib/shifts";
+import { downloadSchedulePng } from "./exportPng";
 import type { ShiftFormInitial } from "./ShiftFormModal";
+import { assignLanes, buildSchedule, hhmm, scheduleDates, type ScheduleMode } from "./scheduleLayout";
 import { dateLabel, roleBorder, roleColor, type ShiftItem } from "./shiftTypes";
 
 // Minimum width per hour. The track is flex-1, so on a wide parent the hours
@@ -15,160 +15,61 @@ const LANE_PX = 56;
 const BAR_INSET_PX = 5;
 // Even a 15-minute shift gets a readable bar; lane packing uses this visual
 // length so neighbours stack instead of overlapping.
-const MIN_BAR_PX = 84;
+const MIN_BAR_PX = 108;
 const MIN_BAR_MINUTES = Math.ceil((MIN_BAR_PX / HOUR_PX) * 60);
 
-type Bar = {
-  shiftId: string;
-  title: string;
-  text: string;
-  start: number;
-  end: number;
-  color: string;
-  border: string;
-  mine: boolean;
-};
-type Row = {
-  key: string;
-  // Sort key: earliest start, then label text.
-  sortText: string;
-  label: React.ReactNode;
-  bars: Bar[];
-};
-type Mode = "role" | "person";
-
-const minutesOfDay = (iso: string) => timeToMinutes(formatJstTime(new Date(iso)));
-const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
-
-// Greedy lane packing: bars that overlap in time go on separate lanes, so
-// several people on the same role at the same hour stack instead of hiding
-// each other.
-function assignLanes(bars: Bar[]) {
-  const sorted = [...bars].sort((a, b) => a.start - b.start || a.end - b.end);
-  const laneEnds: number[] = [];
-  const placed = sorted.map((bar) => {
-    let lane = laneEnds.findIndex((end) => end <= bar.start);
-    if (lane === -1) lane = laneEnds.length;
-    laneEnds[lane] = Math.max(bar.end, bar.start + MIN_BAR_MINUTES);
-    return { bar, lane };
-  });
-  return { placed, lanes: Math.max(1, laneEnds.length) };
-}
-
 // シフト表: one day at a time with a time axis across. Rows are roles by
-// default (who covers 調理 / レジ when), or people (what each person does
-// when). Scrolls sideways on phones.
+// default (who covers 調理 / レジ when, with their icons), or people (what each
+// person does when). Scrolls sideways on phones.
 export default function ShiftTable({
   items,
   roleOrder,
+  title,
   onAdd,
   onEdit,
 }: {
   items: ShiftItem[];
   roleOrder: string[];
+  // Shown on the exported PNG (the instance's name).
+  title: string;
   // Admin only. In the by-role view a "+" or a tap on an empty stretch of a
   // role's row starts a new shift for that role (and time) on the shown day.
   onAdd?: (initial: ShiftFormInitial) => void;
   // Admin only: tapping a bar edits that bar's shift (in either view).
   onEdit?: (shiftId: string) => void;
 }) {
-  const dates = [...new Set(items.map((i) => formatJstDateKey(new Date(i.shift.startsAt))))].sort();
+  const dates = scheduleDates(items);
   const [picked, setPicked] = useState<string | null>(null);
-  const [mode, setMode] = useState<Mode>("role");
+  const [mode, setMode] = useState<ScheduleMode>("role");
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const date = picked && dates.includes(picked) ? picked : dates[0];
 
   if (!date) return <p className="text-sm text-neutral-400">表示できるシフトがありません</p>;
 
-  const dayItems = items.filter((i) => formatJstDateKey(new Date(i.shift.startsAt)) === date);
-
-  const rowMap = new Map<string, Row>();
-  for (const { shift, assignments } of dayItems) {
-    const start = minutesOfDay(shift.startsAt);
-    const end = minutesOfDay(shift.endsAt);
-    for (const a of assignments) {
-      const range = `${hhmm(start)}〜${hhmm(end)}`;
-      const key = mode === "role" ? a.role : a.memberId;
-      let row = rowMap.get(key);
-      if (!row) {
-        row =
-          mode === "role"
-            ? {
-                key,
-                sortText: a.role,
-                label: (
-                  <span className={`truncate rounded px-1.5 py-0.5 text-xs font-semibold ${roleColor(a.role)}`}>
-                    {a.role}
-                  </span>
-                ),
-                bars: [],
-              }
-            : {
-                key,
-                sortText: a.name,
-                label: (
-                  <>
-                    <Avatar name={a.name} image={a.image} size={22} />
-                    <span className="min-w-0">
-                      <span className={`block truncate text-xs ${a.isMe ? "font-bold text-neutral-900" : "text-neutral-700"}`}>
-                        {a.name}
-                      </span>
-                      {a.unapproved && <span className="block text-[9px] font-bold text-amber-700">未承認ユーザー</span>}
-                    </span>
-                  </>
-                ),
-                bars: [],
-              };
-        rowMap.set(key, row);
-      }
-      row.bars.push({
-        shiftId: shift.id,
-        title: `${a.name}${a.unapproved ? "(未承認ユーザー)" : ""} ${a.role} ${range}`,
-        text: mode === "role" ? a.name : a.role,
-        start,
-        end,
-        color: roleColor(a.role),
-        border: roleBorder(a.role),
-        mine: a.isMe,
-      });
-    }
-  }
-
-  if (onAdd && mode === "role") {
-    for (const name of roleOrder) {
-      if (!rowMap.has(name)) {
-        rowMap.set(name, {
-          key: name,
-          sortText: name,
-          label: (
-            <span className={`truncate rounded px-1.5 py-0.5 text-xs font-semibold ${roleColor(name)}`}>{name}</span>
-          ),
-          bars: [],
-        });
-      }
-    }
-  }
-
-  const earliest = (r: Row) => Math.min(...r.bars.map((b) => b.start));
-  const roleRank = (name: string) => {
-    const i = roleOrder.indexOf(name);
-    return i === -1 ? roleOrder.length : i;
-  };
-  const rows = [...rowMap.values()].sort((a, b) =>
-    mode === "role"
-      ? roleRank(a.sortText) - roleRank(b.sortText) || a.sortText.localeCompare(b.sortText)
-      : earliest(a) - earliest(b) || a.sortText.localeCompare(b.sortText),
-  );
-
-  const allBars = rows.flatMap((r) => r.bars);
-  // Shifts with nobody assigned still set the axis, so empty slots show.
-  const starts = [...allBars.map((b) => b.start), ...dayItems.map((i) => minutesOfDay(i.shift.startsAt))];
-  const ends = [...allBars.map((b) => b.end), ...dayItems.map((i) => minutesOfDay(i.shift.endsAt))];
-  const axisStart = Math.floor(Math.min(...starts) / 60) * 60;
-  const axisEnd = Math.max(axisStart + 60, Math.ceil(Math.max(...ends) / 60) * 60);
+  const { rows, axisStart, axisEnd } = buildSchedule(items, date, mode, roleOrder, Boolean(onAdd));
   const span = axisEnd - axisStart;
   const hours = span / 60;
   const trackWidth = hours * HOUR_PX;
   const hourMarks = Array.from({ length: hours }, (_, i) => axisStart + i * 60);
+
+  async function exportPng() {
+    setExporting(true);
+    setExportError(null);
+    try {
+      // The export leaves out the empty rows an Admin sees for adding.
+      await downloadSchedulePng({
+        layout: buildSchedule(items, date, mode, roleOrder, false),
+        mode,
+        date,
+        title,
+      });
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : "画像を作成できませんでした");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -199,7 +100,16 @@ export default function ShiftTable({
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          onClick={exportPng}
+          disabled={exporting}
+          className="ml-auto rounded border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+        >
+          {exporting ? "作成中…" : `${dateLabel(date)}をPNGで保存`}
+        </button>
       </div>
+      {exportError && <p className="text-xs text-red-600">{exportError}</p>}
 
       <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white shadow-sm">
         <div style={{ minWidth: LABEL_PX + trackWidth }}>
@@ -219,14 +129,30 @@ export default function ShiftTable({
           </div>
 
           {rows.map((row) => {
-            const { placed, lanes } = assignLanes(row.bars);
+            const { placed, lanes } = assignLanes(row.bars, MIN_BAR_MINUTES);
             return (
               <div key={row.key} className="flex border-b border-neutral-100 last:border-b-0">
                 <div
                   className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 bg-white px-2 py-1.5"
                   style={{ width: LABEL_PX }}
                 >
-                  {row.label}
+                  {mode === "role" ? (
+                    <span className={`truncate rounded px-1.5 py-0.5 text-xs font-semibold ${roleColor(row.roleName!)}`}>
+                      {row.roleName}
+                    </span>
+                  ) : (
+                    <>
+                      <Avatar name={row.personName!} image={row.image} size={22} />
+                      <span className="min-w-0">
+                        <span
+                          className={`block truncate text-xs ${row.isMe ? "font-bold text-neutral-900" : "text-neutral-700"}`}
+                        >
+                          {row.personName}
+                        </span>
+                        {row.unapproved && <span className="block text-[9px] font-bold text-amber-700">未承認ユーザー</span>}
+                      </span>
+                    </>
+                  )}
                   {onAdd && mode === "role" && (
                     <button
                       type="button"
@@ -272,7 +198,7 @@ export default function ShiftTable({
                             },
                           }
                         : {})}
-                      className={`absolute ${onEdit ? "cursor-pointer hover:brightness-95" : ""} flex flex-col justify-center overflow-hidden rounded-md border px-2 py-1 leading-snug ${bar.color} ${bar.border} ${
+                      className={`absolute ${onEdit ? "cursor-pointer hover:brightness-95" : ""} flex items-center gap-1.5 overflow-hidden rounded-md border px-2 py-1 leading-snug ${roleColor(bar.roleName)} ${roleBorder(bar.roleName)} ${
                         bar.mine ? "ring-2 ring-blue-400" : ""
                       }`}
                       style={{
@@ -283,9 +209,14 @@ export default function ShiftTable({
                         minWidth: MIN_BAR_PX,
                       }}
                     >
-                      <span className="block truncate text-xs font-semibold">{bar.text}</span>
-                      <span className="block truncate text-[11px] tabular-nums opacity-70">
-                        {hhmm(bar.start)}〜{hhmm(bar.end)}
+                      {mode === "role" && <Avatar name={bar.personName} image={bar.image} size={22} />}
+                      <span className="min-w-0">
+                        <span className="block truncate text-xs font-semibold">
+                          {mode === "role" ? bar.personName : bar.roleName}
+                        </span>
+                        <span className="block truncate text-[11px] tabular-nums opacity-70">
+                          {hhmm(bar.start)}〜{hhmm(bar.end)}
+                        </span>
                       </span>
                     </div>
                   ))}

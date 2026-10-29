@@ -26,6 +26,7 @@ const timeRange = (s: ShiftView) =>
 
 export default function ShiftsClient({
   instanceId,
+  instanceName,
   isAdmin,
   nowMs,
   members,
@@ -33,6 +34,7 @@ export default function ShiftsClient({
   shifts,
 }: {
   instanceId: string;
+  instanceName: string;
   isAdmin: boolean;
   // Server render time, so "finished" shifts are decided without Date.now() here.
   nowMs: number;
@@ -95,6 +97,11 @@ export default function ShiftsClient({
     end: formatJstTime(new Date(s.endsAt)),
     rows: s.assignments.map((a) => ({ memberId: a.memberId, role: a.role })),
   });
+  // Roles higher in the Admin's priority list come first within a shift.
+  const roleRank = (role: string) => {
+    const i = roles.findIndex((r) => r.name === role);
+    return i === -1 ? roles.length : i;
+  };
   const openEdit = (s: ShiftView) => setForm({ shiftId: s.id, initial: initialOf(s) });
 
   return (
@@ -109,7 +116,7 @@ export default function ShiftsClient({
               onClick={() => setManagingRoles(true)}
               className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm text-neutral-700"
             >
-              役割を登録
+              役割の設定
             </button>
             <button
               type="button"
@@ -214,6 +221,7 @@ export default function ShiftsClient({
         <ShiftTable
           items={items}
           roleOrder={roles.map((r) => r.name)}
+          title={instanceName}
           onAdd={isAdmin ? (initial) => setForm({ shiftId: null, initial }) : undefined}
           onEdit={
             isAdmin
@@ -271,17 +279,19 @@ export default function ShiftsClient({
                       )}
                     </div>
                     <ul className="mt-2 flex flex-col gap-1.5">
-                      {assignments.map((a) => (
-                        <li key={`${a.memberId}-${a.role}`} className="flex flex-wrap items-center gap-2 text-sm">
-                          <Avatar name={a.name} image={a.image} size={24} />
-                          <span className={a.isMe ? "font-semibold text-neutral-900" : "text-neutral-700"}>{a.name}</span>
-                          {a.unapproved && (
-                            <span className="rounded bg-amber-100 px-1 py-0.5 text-[9px] font-bold text-amber-700">
-                              未承認ユーザー
-                            </span>
-                          )}
-                          <span className={`rounded px-1.5 py-0.5 text-xs ${roleColor(a.role)}`}>{a.role}</span>
-                        </li>
+                      {[...assignments]
+                        .sort((a, b) => roleRank(a.role) - roleRank(b.role))
+                        .map((a) => (
+                          <li key={`${a.memberId}-${a.role}`} className="flex flex-wrap items-center gap-2 text-sm">
+                            <Avatar name={a.name} image={a.image} size={24} />
+                            <span className={a.isMe ? "font-semibold text-neutral-900" : "text-neutral-700"}>{a.name}</span>
+                            {a.unapproved && (
+                              <span className="rounded bg-amber-100 px-1 py-0.5 text-[9px] font-bold text-amber-700">
+                                未承認ユーザー
+                              </span>
+                            )}
+                            <span className={`rounded px-1.5 py-0.5 text-xs ${roleColor(a.role)}`}>{a.role}</span>
+                          </li>
                       ))}
                       {assignments.length === 0 && <li className="text-xs text-neutral-400">担当者が未設定です</li>}
                     </ul>

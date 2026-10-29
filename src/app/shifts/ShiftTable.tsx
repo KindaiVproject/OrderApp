@@ -5,7 +5,7 @@ import Avatar from "@/components/Avatar";
 import { downloadSchedulePng } from "./exportPng";
 import type { ShiftFormInitial } from "./ShiftFormModal";
 import { assignLanes, buildSchedule, hhmm, scheduleDates, type ScheduleMode } from "./scheduleLayout";
-import { dateLabel, roleBorder, roleColor, type ShiftItem } from "./shiftTypes";
+import { dateLabel, roleBorder, roleColor, type RoleColors, type ShiftItem } from "./shiftTypes";
 
 // Minimum width per hour. The track is flex-1, so on a wide parent the hours
 // stretch to fill it; the room comes from the parent, not from fat cells.
@@ -25,6 +25,7 @@ export default function ShiftTable({
   items,
   roleOrder,
   title,
+  roleColors,
   onAdd,
   onEdit,
 }: {
@@ -32,6 +33,8 @@ export default function ShiftTable({
   roleOrder: string[];
   // Shown on the exported PNG (the instance's name).
   title: string;
+  // Colors the Admin chose per role (absent = automatic).
+  roleColors: RoleColors;
   // Admin only. In the by-role view a "+" or a tap on an empty stretch of a
   // role's row starts a new shift for that role (and time) on the shown day.
   onAdd?: (initial: ShiftFormInitial) => void;
@@ -63,6 +66,7 @@ export default function ShiftTable({
         mode,
         date,
         title,
+        roleColors,
       });
     } catch (e) {
       setExportError(e instanceof Error ? e.message : "画像を作成できませんでした");
@@ -137,7 +141,7 @@ export default function ShiftTable({
                   style={{ width: LABEL_PX }}
                 >
                   {mode === "role" ? (
-                    <span className={`truncate rounded px-1.5 py-0.5 text-xs font-semibold ${roleColor(row.roleName!)}`}>
+                    <span className={`truncate rounded px-1.5 py-0.5 text-xs font-semibold ${roleColor(row.roleName!, roleColors)}`}>
                       {row.roleName}
                     </span>
                   ) : (
@@ -198,7 +202,7 @@ export default function ShiftTable({
                             },
                           }
                         : {})}
-                      className={`absolute ${onEdit ? "cursor-pointer hover:brightness-95" : ""} flex items-center gap-1.5 overflow-hidden rounded-md border px-2 py-1 leading-snug ${roleColor(bar.roleName)} ${roleBorder(bar.roleName)} ${
+                      className={`absolute ${onEdit ? "cursor-pointer hover:brightness-95" : ""} flex items-center gap-1.5 overflow-hidden rounded-md border px-2 py-1 leading-snug ${roleColor(bar.roleName, roleColors)} ${roleBorder(bar.roleName, roleColors)} ${
                         bar.mine ? "ring-2 ring-blue-400" : ""
                       }`}
                       style={{

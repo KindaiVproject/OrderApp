@@ -119,6 +119,9 @@ model ShiftRole {
   instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   name       String
   sortOrder  Int      @default(0)
+  // Palette key from src/lib/shiftColors.ts; null = automatic (derived from
+  // the name), so existing roles keep the colors they already had.
+  color      String?
   createdAt  DateTime @default(now())
 
   @@unique([instanceId, name])

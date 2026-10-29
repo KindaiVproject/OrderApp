@@ -14,6 +14,7 @@ import {
   dateLabel,
   roleColor,
   type MemberOption,
+  type RoleColors,
   type RoleOption,
   type ShiftItem,
   type ShiftView,
@@ -102,6 +103,7 @@ export default function ShiftsClient({
     rows: s.assignments.map((a) => ({ memberId: a.memberId, role: a.role })),
   });
   // Roles higher in the Admin's priority list come first within a shift.
+  const roleColors: RoleColors = Object.fromEntries(roles.map((r) => [r.name, r.color]));
   const roleRank = (role: string) => {
     const i = roles.findIndex((r) => r.name === role);
     return i === -1 ? roles.length : i;
@@ -226,6 +228,7 @@ export default function ShiftsClient({
           items={items}
           roleOrder={roles.map((r) => r.name)}
           title={instanceName}
+          roleColors={roleColors}
           // The table's "+" has no time of its own: it gets the next full hour.
           onAdd={
             isAdmin
@@ -303,7 +306,7 @@ export default function ShiftsClient({
                                 未承認ユーザー
                               </span>
                             )}
-                            <span className={`rounded px-1.5 py-0.5 text-xs ${roleColor(a.role)}`}>{a.role}</span>
+                            <span className={`rounded px-1.5 py-0.5 text-xs ${roleColor(a.role, roleColors)}`}>{a.role}</span>
                           </li>
                       ))}
                       {assignments.length === 0 && <li className="text-xs text-neutral-400">担当者が未設定です</li>}

@@ -53,7 +53,7 @@ export default async function InstanceShifts({ instanceId }: { instanceId: strin
               }))
             : []
         }
-        roles={roles.map((r) => ({ id: r.id, name: r.name }))}
+        roles={roles.map((r) => ({ id: r.id, name: r.name, color: r.color }))}
         shifts={shifts.map((s) => ({
           id: s.id,
           startsAt: s.startsAt.toISOString(),

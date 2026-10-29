@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { getMemberInstance, isAdminEmail } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
+import { SHIFT_COLOR_KEYS } from "@/lib/shiftColors";
 import { MAX_ROLE_LENGTH } from "@/lib/shifts";
 
 // Registering shift roles is global-Admin only, like the shifts themselves.
@@ -21,6 +22,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `役割名は${MAX_ROLE_LENGTH}文字以内で入力してください` }, { status: 400 });
   }
 
+  const color = typeof body?.color === "string" ? body.color : null;
+  if (color && !SHIFT_COLOR_KEYS.includes(color)) {
+    return NextResponse.json({ error: "色の指定が不正です" }, { status: 400 });
+  }
+
   const existing = await prisma.shiftRole.findUnique({
     where: { instanceId_name: { instanceId: instance.id, name } },
   });
@@ -31,7 +37,7 @@ export async function POST(request: Request) {
     _max: { sortOrder: true },
   });
   const role = await prisma.shiftRole.create({
-    data: { instanceId: instance.id, name, sortOrder: (max._max.sortOrder ?? 0) + 1 },
+    data: { instanceId: instance.id, name, color, sortOrder: (max._max.sortOrder ?? 0) + 1 },
   });
 
   await logEdit({

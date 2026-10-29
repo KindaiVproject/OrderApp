@@ -67,6 +67,13 @@ async function MyShifts() {
     orderBy: { shift: { startsAt: "asc" } },
   });
 
+  // Each instance names/colors its own roles, so look the color up per instance.
+  const roles = await prisma.shiftRole.findMany({
+    where: { instanceId: { in: [...new Set(assignments.map((a) => a.shift.instanceId))] } },
+  });
+  const colorOf = (instanceId: string, role: string) =>
+    roles.find((r) => r.instanceId === instanceId && r.name === role)?.color ?? null;
+
   return (
     <div className="mx-auto w-full max-w-3xl p-4">
       <MyShiftsClient
@@ -80,6 +87,7 @@ async function MyShifts() {
           startsAt: a.shift.startsAt.toISOString(),
           endsAt: a.shift.endsAt.toISOString(),
           role: a.role,
+          roleColor: colorOf(a.shift.instanceId, a.role),
         }))}
       />
     </div>

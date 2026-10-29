@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { formatJstDateKey, formatJstTime } from "@/lib/datetime";
-import { dateLabel, roleColor } from "./shiftTypes";
+import { shiftColor } from "@/lib/shiftColors";
+import { dateLabel } from "./shiftTypes";
 
 export type MyShift = {
   id: string;
@@ -14,6 +15,8 @@ export type MyShift = {
   startsAt: string;
   endsAt: string;
   role: string;
+  // Palette key chosen for the role in its instance (null = automatic).
+  roleColor: string | null;
 };
 
 // My shifts across every instance I can open, in time order.
@@ -59,7 +62,7 @@ export default function MyShiftsClient({ shifts, nowMs }: { shifts: MyShift[]; n
                   <span className="text-sm font-semibold tabular-nums text-neutral-800">
                     {formatJstTime(new Date(s.startsAt))}〜{formatJstTime(new Date(s.endsAt))}
                   </span>
-                  <span className={`rounded px-1.5 py-0.5 text-xs ${roleColor(s.role)}`}>{s.role}</span>
+                  <span className={`rounded px-1.5 py-0.5 text-xs ${shiftColor(s.role, s.roleColor).chip}`}>{s.role}</span>
                   <span
                     className="rounded bg-neutral-800 px-1.5 py-0.5 text-[10px] font-bold text-white"
                     title={s.instanceName}

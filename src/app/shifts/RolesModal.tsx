@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { SHIFT_COLORS, shiftColor } from "@/lib/shiftColors";
 import { MAX_ROLE_LENGTH } from "@/lib/shifts";
-import { roleColor, type RoleOption } from "./shiftTypes";
+import type { RoleOption } from "./shiftTypes";
 
-// Admin: register, rename, reorder and remove the roles the shift form offers
+// Admin: register, rename, recolor, reorder and remove the roles the shift form offers
 // for this instance. The order is the display priority (top of the schedule
 // table, first in the pick-list).
 export default function RolesModal({
@@ -23,6 +24,8 @@ export default function RolesModal({
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  // The role whose color palette is open.
+  const [paletteId, setPaletteId] = useState<string | null>(null);
 
   // One request at a time; surfaces the server's message on failure.
   async function call(url: string, init: RequestInit, failure: string) {
@@ -60,6 +63,12 @@ export default function RolesModal({
     }
   }
 
+  async function pickColor(role: RoleOption, color: string | null) {
+    if (await call(`/api/shifts/roles/${role.id}`, { method: "PATCH", body: JSON.stringify({ color }) }, "色の変更に失敗しました")) {
+      setPaletteId(null);
+    }
+  }
+
   function move(index: number, delta: -1 | 1) {
     const ids = roles.map((r) => r.id);
     const target = index + delta;
@@ -76,7 +85,7 @@ export default function RolesModal({
       <div className="flex max-h-[90dvh] w-full max-w-md flex-col gap-3 overflow-y-auto rounded-t-xl bg-white p-4 shadow-xl sm:rounded-xl">
         <h2 className="text-base font-semibold text-neutral-800">役割の設定</h2>
         <p className="text-xs leading-relaxed text-neutral-500">
-          このインスタンスのシフトで選べる役割です。上にあるほど優先して表示します(シフト表の行、選択肢の順)。名前を変えると、設定済みのシフトの役割も一緒に変わります。削除しても、設定済みのシフトの役割は変わりません。
+          このインスタンスのシフトで選べる役割です。上にあるほど優先して表示します(シフト表の行、選択肢の順)。名前を変えると、設定済みのシフトの役割も一緒に変わります。丸いボタンで色を選べます。削除しても、設定済みのシフトの役割は変わりません。
         </p>
 
         <form onSubmit={add} className="flex gap-2">
@@ -99,7 +108,7 @@ export default function RolesModal({
 
         <ul className="flex flex-col gap-1.5">
           {roles.map((role, i) => (
-            <li key={role.id} className="flex items-center gap-1.5 rounded-lg border border-neutral-200 p-1.5">
+            <li key={role.id} className="flex flex-wrap items-center gap-1.5 rounded-lg border border-neutral-200 p-1.5">
               {editingId === role.id ? (
                 <>
                   <input
@@ -122,7 +131,20 @@ export default function RolesModal({
                 </>
               ) : (
                 <>
-                  <span className={`min-w-0 flex-1 truncate rounded px-2 py-1 text-sm ${roleColor(role.name)}`}>{role.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setPaletteId((id) => (id === role.id ? null : role.id))}
+                    aria-label={`${role.name}の色を変更`}
+                    aria-expanded={paletteId === role.id}
+                    className="h-6 w-6 shrink-0 rounded-full border-2"
+                    style={{
+                      backgroundColor: shiftColor(role.name, role.color).bg,
+                      borderColor: shiftColor(role.name, role.color).line,
+                    }}
+                  />
+                  <span className={`min-w-0 flex-1 truncate rounded px-2 py-1 text-sm ${shiftColor(role.name, role.color).chip}`}>
+                    {role.name}
+                  </span>
                   <button
                     type="button"
                     onClick={() => {
@@ -159,6 +181,31 @@ export default function RolesModal({
                     ✕
                   </button>
                 </>
+              )}
+              {paletteId === role.id && editingId !== role.id && (
+                <div className="flex w-full flex-wrap items-center gap-2 border-t border-neutral-100 pt-1.5">
+                  {SHIFT_COLORS.map((c) => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => pickColor(role, c.key)}
+                      disabled={busy}
+                      aria-label={`${c.label}にする`}
+                      aria-pressed={role.color === c.key}
+                      className={`h-7 w-7 rounded-full border-2 ${role.color === c.key ? "ring-2 ring-neutral-800 ring-offset-1" : ""}`}
+                      style={{ backgroundColor: c.bg, borderColor: c.line }}
+                    />
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => pickColor(role, null)}
+                    disabled={busy}
+                    aria-pressed={role.color === null}
+                    className={`rounded border px-2 py-1 text-xs ${role.color === null ? "border-neutral-800 font-bold" : "border-neutral-300 text-neutral-600"}`}
+                  >
+                    自動
+                  </button>
+                </div>
               )}
             </li>
           ))}

@@ -131,7 +131,7 @@
 
 ### 6.1 シフトの入力(Admin)
 
-- **役割の設定(Admin)**: 「役割の設定」で、登録・**名前の変更**(設定済みのシフトの役割テキストも一緒に更新。重複名は409)・**並び替え(上下ボタン=表示優先度)**・削除ができる(`PATCH /api/shifts/roles/[id]`、`POST /api/shifts/roles/reorder`。編集履歴に記録)。優先度が高い(上の)役割ほど、シフト表の行・フォームの選択肢・リスト内の担当の並びで先に出る。
+- **役割の設定(Admin)**: 「役割の設定」で、登録・**色の変更**(丸いボタンから10色のパレット(`src/lib/shiftColors.ts`)または「自動」を選ぶ。色はリスト・シフト表・自分のシフト・PNGに反映。「自動」は名前から決まる従来の色(先頭8色)なので、何も選ばない役割の色は変わらない)・**名前の変更**(設定済みのシフトの役割テキストも一緒に更新。重複名は409)・**並び替え(上下ボタン=表示優先度)**・削除ができる(`PATCH /api/shifts/roles/[id]`、`POST /api/shifts/roles/reorder`。編集履歴に記録)。優先度が高い(上の)役割ほど、シフト表の行・フォームの選択肢・リスト内の担当の並びで先に出る。
 - **役割は事前登録制**: 「役割の設定」でインスタンスごとに役割(20文字以内、重複不可)を登録し、シフトの担当行では登録済みの役割から選ぶ(`ShiftRole`)。役割を削除しても、設定済みのシフトの役割(文字列で保存)は変わらない。サーバーは未登録の役割を拒否する(編集時は、そのシフトがすでに使っている役割は許可)。
 - **終了は開始の1時間後が既定**: 開始を入れると終了が自動で +1時間。終了を手で変える/調整ボタンを押すと、以降は開始を変えても終了は自動で動かない。
 - **終了の調整ボタン**: 「+15分」「−15分」「+1時間」「−1時間」。同日内(00:00〜23:59)に収め、開始以前にはならない(下限は開始の1分後)。
@@ -159,7 +159,7 @@
 |---|---|---|
 | `User` / `Account` / `Session` / `VerificationToken` | Auth.js 標準 | DBセッション。追加列: `displayName`(本人が設定する表示名)、`shiftReminder30`(30分前通知、既定 true) |
 | `PushSubscription` | userId, endpoint(unique), p256dh, auth | 通知をオンにしたブラウザ/端末ごとの Web Push 購読情報。通知を切る・送信先が失効(404/410)したら削除 |
-| `ShiftRole` | instanceId, name, sortOrder | シフトで選べる役割の候補。`(instanceId, name)` が unique。インスタンス削除でカスケード削除 |
+| `ShiftRole` | instanceId, name, sortOrder, color? | シフトで選べる役割の候補。`(instanceId, name)` が unique。インスタンス削除でカスケード削除 |
 | `JobRun` | name(PK), ranAt, checked, sent | 外部cronの最終実行の記録(heartbeat)。`/admin` の「シフト通知ジョブの状態」に表示 |
 | `Shift` | instanceId, startsAt, endsAt | 時間帯(UTC保存、表示はJST、分単位)。インスタンス削除でカスケード削除 |
 | `ShiftAssignment` | shiftId, memberId, role, beforeNotifiedAt?, startNotifiedAt? | シフト×担当者×役割(役割は自由入力、20文字以内)。`*NotifiedAt` は通知送信済みの印で二重送信防止 |
@@ -171,7 +171,7 @@
 | `OrderItem` | productId?, productName, imageUrl?, unitPrice, quantity | スナップショット保持。商品削除時 `productId` は null に |
 | `EditLog` | instanceId, entityType(ORDER/PRODUCT/MEMBER), entityId, action(CREATE/EDIT/CANCEL/COMPLETE/DELETE/INVITE), summary, actorEmail, createdAt | `(instanceId, createdAt)` に index |
 
-マイグレーションは `prisma/migrations/`(init → 注文キャンセル+明細画像 → インスタンス管理者+編集履歴 → メンバー表示名 → ユーザー表示名 → シフトと Web Push → 役割マスタ)。
+マイグレーションは `prisma/migrations/`(init → 注文キャンセル+明細画像 → インスタンス管理者+編集履歴 → メンバー表示名 → ユーザー表示名 → シフトと Web Push → 役割マスタ → 役割の色)。
 
 ## 9. CSV出力(`GET /api/orders/export`)
 
@@ -213,7 +213,7 @@
 | POST | `/api/admin/admins` | Admin | Admin招待 |
 | DELETE | `/api/admin/admins/[id]` | Admin | Admin権限の削除 |
 | POST | `/api/shifts` | Admin(対象インスタンスのメンバー。**停止中でも可**) | シフト追加(`instanceId`・日付・開始・終了・担当と役割。編集履歴に記録)。**対象はCookieの現在インスタンスではなく本文の `instanceId`** |
-| PATCH | `/api/shifts/roles/[id]` | Admin(同上) | 役割名の変更(設定済みシフトの役割も更新。重複は409) |
+| PATCH | `/api/shifts/roles/[id]` | Admin(同上) | 役割名・色の変更(`name` / `color`。名前を変えると設定済みシフトの役割も更新、重複は409。`color` は `null` で自動) |
 | POST | `/api/shifts/roles/reorder` | Admin(同上) | 役割の並び替え(`instanceId` と全役割の `ids`) |
 | POST | `/api/shifts/roles` | Admin(同上) | 役割の登録(`instanceId` 付き、20文字以内、重複は409。編集履歴に記録) |
 | DELETE | `/api/shifts/roles/[id]` | Admin | 役割の削除(設定済みシフトの役割は変わらない) |

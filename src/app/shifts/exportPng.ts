@@ -1,5 +1,5 @@
 import { assignLanes, hhmm, type ScheduleLayout, type ScheduleMode } from "./scheduleLayout";
-import { dateLabel, roleHex } from "./shiftTypes";
+import { dateLabel, roleHex, type RoleColors } from "./shiftTypes";
 
 // Draws one day of the schedule table onto a canvas and downloads it as a PNG.
 // Hand-drawn (no html-to-image) so it needs no extra library and works with
@@ -78,8 +78,9 @@ export async function renderSchedulePng(opts: {
   mode: ScheduleMode;
   date: string;
   title: string;
+  roleColors: RoleColors;
 }): Promise<HTMLCanvasElement> {
-  const { layout, mode, date, title } = opts;
+  const { layout, mode, date, title, roleColors } = opts;
   const { rows, axisStart, axisEnd } = layout;
   const span = axisEnd - axisStart;
   const hours = span / 60;
@@ -161,7 +162,7 @@ export async function renderSchedulePng(opts: {
     // Row label
     const midY = y + rowH / 2;
     if (mode === "role") {
-      const hex = roleHex(row.roleName!);
+      const hex = roleHex(row.roleName!, roleColors);
       ctx.font = `700 14px ${FONT}`;
       const text = fitText(ctx, row.roleName!, LABEL_W - 28);
       const w = ctx.measureText(text).width + 16;
@@ -188,7 +189,7 @@ export async function renderSchedulePng(opts: {
 
     // Bars
     for (const { bar, lane } of placed) {
-      const hex = roleHex(bar.roleName);
+      const hex = roleHex(bar.roleName, roleColors);
       const x = trackX + ((bar.start - axisStart) / span) * hours * HOUR_W;
       const w = Math.max(((bar.end - bar.start) / 60) * HOUR_W, MIN_BAR_W);
       const by = y + lane * LANE_H + INSET;

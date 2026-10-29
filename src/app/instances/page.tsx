@@ -10,7 +10,8 @@ export default async function InstancesPage() {
   const session = await requireSession();
   const instances = await getMyInstances();
   const isAdmin = await isAdminEmail(session.user!.email);
-  const hasOpenable = instances.some((i) => i.active);
+  // Shifts stay viewable on stopped instances, so any membership counts.
+  const hasInstance = instances.length > 0;
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col p-4">
@@ -23,7 +24,7 @@ export default async function InstancesPage() {
         <InstancePicker instances={instances} />
 
         <div className="flex flex-col gap-2">
-          {hasOpenable && (
+          {hasInstance && (
             <Link href="/shifts" className={LINK_CLASS}>
               自分のシフトを見る
             </Link>

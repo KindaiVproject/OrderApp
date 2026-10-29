@@ -13,7 +13,7 @@ export default function AccountClient({
   googleName,
   image,
   initialDisplayName,
-  hasOpenableInstance,
+  hasInstance,
   initialReminder30,
   vapidPublicKey,
 }: {
@@ -21,7 +21,7 @@ export default function AccountClient({
   googleName: string | null;
   image: string | null;
   initialDisplayName: string;
-  hasOpenableInstance: boolean;
+  hasInstance: boolean;
   initialReminder30: boolean;
   vapidPublicKey: string;
 }) {
@@ -76,7 +76,7 @@ export default function AccountClient({
         </div>
       </div>
 
-      {hasOpenableInstance && (
+      {hasInstance && (
         <Link
           href="/shifts"
           className="rounded-lg border border-neutral-300 bg-white px-3 py-2.5 text-center text-sm font-medium text-neutral-800 shadow-sm hover:bg-neutral-50"

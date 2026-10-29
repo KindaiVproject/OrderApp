@@ -6,7 +6,8 @@ import AccountClient from "./AccountClient";
 export default async function AccountPage() {
   const session = await requireSession();
   const user = await prisma.user.findUnique({ where: { email: session.user!.email! } });
-  const hasOpenableInstance = (await getMyInstances()).some((i) => i.active);
+  // Shifts stay viewable on stopped instances, so any membership counts.
+  const hasInstance = (await getMyInstances()).length > 0;
 
   return (
     <AccountClient
@@ -14,7 +15,7 @@ export default async function AccountPage() {
       googleName={user?.name ?? null}
       image={user?.image ?? null}
       initialDisplayName={user?.displayName ?? ""}
-      hasOpenableInstance={hasOpenableInstance}
+      hasInstance={hasInstance}
       initialReminder30={user?.shiftReminder30 ?? true}
       vapidPublicKey={getVapidPublicKey()}
     />

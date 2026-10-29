@@ -10,6 +10,7 @@ export type MyShift = {
   instanceId: string;
   instanceName: string;
   instanceLabel: string;
+  instanceActive: boolean;
   startsAt: string;
   endsAt: string;
   role: string;
@@ -65,6 +66,11 @@ export default function MyShiftsClient({ shifts, nowMs }: { shifts: MyShift[]; n
                   >
                     {s.instanceLabel || s.instanceName}
                   </span>
+                  {!s.instanceActive && (
+                    <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] font-bold text-neutral-600">
+                      停止中
+                    </span>
+                  )}
                   {overlaps(s) && (
                     <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
                       他のシフトと時間が重なっています

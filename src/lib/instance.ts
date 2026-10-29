@@ -58,9 +58,10 @@ export async function getCurrentInstance() {
   return membership.instance;
 }
 
-// An active instance the signed-in user is a member of, looked up by id
-// rather than by the "current instance" cookie. The shift screens use this so
-// one page can show (and edit) any instance the user can open.
+// An instance the signed-in user is a member of, looked up by id rather than
+// by the "current instance" cookie. Shifts are the one thing that stays open
+// on a *stopped* instance (viewing for members, editing for Admin), so unlike
+// getCurrentInstance this does not require `active`.
 export async function getMemberInstance(instanceId: string) {
   const session = await auth();
   if (!session?.user?.email || !instanceId) return null;
@@ -68,7 +69,7 @@ export async function getMemberInstance(instanceId: string) {
     where: { instanceId_email: { instanceId, email: session.user.email } },
     include: { instance: true },
   });
-  if (!membership || !membership.instance.active) return null;
+  if (!membership) return null;
   return membership.instance;
 }
 

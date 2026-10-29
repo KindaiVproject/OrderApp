@@ -1,8 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { InstanceModel } from "@generated/prisma/models";
+
+const SHIFT_BUTTON_CLASS =
+  "flex shrink-0 items-center rounded-lg border border-neutral-300 bg-white px-3 text-xs font-medium text-neutral-700 shadow-sm hover:bg-neutral-50";
 
 export default function InstancePicker({ instances }: { instances: InstanceModel[] }) {
   const router = useRouter();
@@ -65,15 +69,20 @@ export default function InstancePicker({ instances }: { instances: InstanceModel
               {instance.active ? "稼働中" : "停止中"}
             </span>
           </button>
-          {instance.active && (
+          {instance.active ? (
             <button
               type="button"
               disabled={busyId === instance.id}
               onClick={() => select(instance, "/shifts/current")}
-              className="flex shrink-0 items-center rounded-lg border border-neutral-300 bg-white px-3 text-xs font-medium text-neutral-700 shadow-sm hover:bg-neutral-50 disabled:opacity-50"
+              className={SHIFT_BUTTON_CLASS + " disabled:opacity-50"}
             >
               シフト
             </button>
+          ) : (
+            // A stopped instance can't be entered, but its shifts stay open.
+            <Link href={`/shifts?instance=${instance.id}`} className={SHIFT_BUTTON_CLASS}>
+              シフト
+            </Link>
           )}
         </div>
       ))}

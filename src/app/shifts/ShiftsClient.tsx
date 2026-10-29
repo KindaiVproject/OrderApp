@@ -44,7 +44,7 @@ export default function ShiftsClient({
   shifts: ShiftView[];
 }) {
   const router = useRouter();
-  const [mode, setMode] = useState<"list" | "table">("list");
+  const [mode, setMode] = useState<"list" | "table">("table");
   const [showPast, setShowPast] = useState(false);
   const [myOnly, setMyOnly] = useState(false);
   const [fMember, setFMember] = useState("");

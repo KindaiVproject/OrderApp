@@ -203,7 +203,7 @@ export default function ShiftsClient({
       </div>
 
       {mode === "table" ? (
-        <ShiftTable items={items} />
+        <ShiftTable items={items} roleOrder={roles.map((r) => r.name)} />
       ) : (
         <>
           {[...groups.entries()].map(([dateKey, list]) => (

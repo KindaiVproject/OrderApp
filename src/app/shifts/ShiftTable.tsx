@@ -8,44 +8,118 @@ import { dateLabel, roleColor, type ShiftItem } from "./shiftTypes";
 
 const HOUR_PX = 72;
 const LABEL_PX = 112;
+const LANE_PX = 44;
 
-type Bar = { role: string; start: number; end: number };
-type Row = { memberId: string; name: string; image: string | null; isMe: boolean; unapproved: boolean; bars: Bar[] };
+type Bar = {
+  title: string;
+  text: string;
+  start: number;
+  end: number;
+  color: string;
+  mine: boolean;
+};
+type Row = {
+  key: string;
+  // Sort key: earliest start, then label text.
+  sortText: string;
+  label: React.ReactNode;
+  bars: Bar[];
+};
+type Mode = "role" | "person";
 
 const minutesOfDay = (iso: string) => timeToMinutes(formatJstTime(new Date(iso)));
 const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
 
-// シフト表: one day at a time, a row per person and a time axis across, so
-// who works when (and as what) reads at a glance. Scrolls sideways on phones.
-export default function ShiftTable({ items }: { items: ShiftItem[] }) {
+// Greedy lane packing: bars that overlap in time go on separate lanes, so
+// several people on the same role at the same hour stack instead of hiding
+// each other.
+function assignLanes(bars: Bar[]) {
+  const sorted = [...bars].sort((a, b) => a.start - b.start || a.end - b.end);
+  const laneEnds: number[] = [];
+  const placed = sorted.map((bar) => {
+    let lane = laneEnds.findIndex((end) => end <= bar.start);
+    if (lane === -1) lane = laneEnds.length;
+    laneEnds[lane] = bar.end;
+    return { bar, lane };
+  });
+  return { placed, lanes: Math.max(1, laneEnds.length) };
+}
+
+// シフト表: one day at a time with a time axis across. Rows are roles by
+// default (who covers 調理 / レジ when), or people (what each person does
+// when). Scrolls sideways on phones.
+export default function ShiftTable({ items, roleOrder }: { items: ShiftItem[]; roleOrder: string[] }) {
   const dates = [...new Set(items.map((i) => formatJstDateKey(new Date(i.shift.startsAt))))].sort();
   const [picked, setPicked] = useState<string | null>(null);
+  const [mode, setMode] = useState<Mode>("role");
   const date = picked && dates.includes(picked) ? picked : dates[0];
 
   if (!date) return <p className="text-sm text-neutral-400">表示できるシフトがありません</p>;
 
   const dayItems = items.filter((i) => formatJstDateKey(new Date(i.shift.startsAt)) === date);
 
-  const rows = new Map<string, Row>();
+  const rowMap = new Map<string, Row>();
   for (const { shift, assignments } of dayItems) {
+    const start = minutesOfDay(shift.startsAt);
+    const end = minutesOfDay(shift.endsAt);
     for (const a of assignments) {
-      const row = rows.get(a.memberId) ?? {
-        memberId: a.memberId,
-        name: a.name,
-        image: a.image,
-        isMe: a.isMe,
-        unapproved: a.unapproved,
-        bars: [],
-      };
-      row.bars.push({ role: a.role, start: minutesOfDay(shift.startsAt), end: minutesOfDay(shift.endsAt) });
-      rows.set(a.memberId, row);
+      const range = `${hhmm(start)}〜${hhmm(end)}`;
+      const key = mode === "role" ? a.role : a.memberId;
+      let row = rowMap.get(key);
+      if (!row) {
+        row =
+          mode === "role"
+            ? {
+                key,
+                sortText: a.role,
+                label: (
+                  <span className={`truncate rounded px-1.5 py-0.5 text-xs font-semibold ${roleColor(a.role)}`}>
+                    {a.role}
+                  </span>
+                ),
+                bars: [],
+              }
+            : {
+                key,
+                sortText: a.name,
+                label: (
+                  <>
+                    <Avatar name={a.name} image={a.image} size={22} />
+                    <span className="min-w-0">
+                      <span className={`block truncate text-xs ${a.isMe ? "font-bold text-neutral-900" : "text-neutral-700"}`}>
+                        {a.name}
+                      </span>
+                      {a.unapproved && <span className="block text-[9px] font-bold text-amber-700">未承認ユーザー</span>}
+                    </span>
+                  </>
+                ),
+                bars: [],
+              };
+        rowMap.set(key, row);
+      }
+      row.bars.push({
+        title: `${a.name}${a.unapproved ? "(未承認ユーザー)" : ""} ${a.role} ${range}`,
+        text: mode === "role" ? a.name : a.role,
+        start,
+        end,
+        color: roleColor(a.role),
+        mine: a.isMe,
+      });
     }
   }
-  const sorted = [...rows.values()].sort(
-    (a, b) => Math.min(...a.bars.map((x) => x.start)) - Math.min(...b.bars.map((x) => x.start)) || a.name.localeCompare(b.name),
+
+  const earliest = (r: Row) => Math.min(...r.bars.map((b) => b.start));
+  const roleRank = (name: string) => {
+    const i = roleOrder.indexOf(name);
+    return i === -1 ? roleOrder.length : i;
+  };
+  const rows = [...rowMap.values()].sort((a, b) =>
+    mode === "role"
+      ? roleRank(a.sortText) - roleRank(b.sortText) || a.sortText.localeCompare(b.sortText)
+      : earliest(a) - earliest(b) || a.sortText.localeCompare(b.sortText),
   );
 
-  const allBars = sorted.flatMap((r) => r.bars);
+  const allBars = rows.flatMap((r) => r.bars);
   // Shifts with nobody assigned still set the axis, so empty slots show.
   const starts = [...allBars.map((b) => b.start), ...dayItems.map((i) => minutesOfDay(i.shift.startsAt))];
   const ends = [...allBars.map((b) => b.end), ...dayItems.map((i) => minutesOfDay(i.shift.endsAt))];
@@ -58,19 +132,33 @@ export default function ShiftTable({ items }: { items: ShiftItem[] }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-1.5">
-        {dates.map((d) => (
-          <button
-            key={d}
-            type="button"
-            onClick={() => setPicked(d)}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${
-              d === date ? "bg-neutral-900 text-white" : "border border-neutral-300 bg-white text-neutral-600"
-            }`}
-          >
-            {dateLabel(d)}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex overflow-hidden rounded border border-neutral-300 text-xs font-medium">
+          {(["role", "person"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={`px-3 py-1.5 ${mode === m ? "bg-neutral-900 text-white" : "bg-white text-neutral-600"}`}
+            >
+              {m === "role" ? "役割ごと" : "人ごと"}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {dates.map((d) => (
+            <button
+              key={d}
+              type="button"
+              onClick={() => setPicked(d)}
+              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                d === date ? "bg-neutral-900 text-white" : "border border-neutral-300 bg-white text-neutral-600"
+              }`}
+            >
+              {dateLabel(d)}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white shadow-sm">
@@ -90,49 +178,49 @@ export default function ShiftTable({ items }: { items: ShiftItem[] }) {
             </div>
           </div>
 
-          {sorted.map((row) => (
-            <div key={row.memberId} className="flex border-b border-neutral-100 last:border-b-0">
-              <div
-                className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 bg-white px-2 py-1.5"
-                style={{ width: LABEL_PX }}
-              >
-                <Avatar name={row.name} image={row.image} size={22} />
-                <span className="min-w-0">
-                  <span className={`block truncate text-xs ${row.isMe ? "font-bold text-neutral-900" : "text-neutral-700"}`}>
-                    {row.name}
-                  </span>
-                  {row.unapproved && <span className="block text-[9px] font-bold text-amber-700">未承認ユーザー</span>}
-                </span>
+          {rows.map((row) => {
+            const { placed, lanes } = assignLanes(row.bars);
+            return (
+              <div key={row.key} className="flex border-b border-neutral-100 last:border-b-0">
+                <div
+                  className="sticky left-0 z-10 flex shrink-0 items-center gap-1.5 bg-white px-2 py-1.5"
+                  style={{ width: LABEL_PX }}
+                >
+                  {row.label}
+                </div>
+                <div
+                  className="relative flex-1"
+                  style={{
+                    height: lanes * LANE_PX,
+                    backgroundImage: "linear-gradient(to right, #e5e5e5 1px, transparent 1px)",
+                    backgroundSize: `${100 / hours}% 100%`,
+                  }}
+                >
+                  {placed.map(({ bar, lane }, i) => (
+                    <div
+                      key={i}
+                      title={bar.title}
+                      className={`absolute overflow-hidden rounded px-1.5 py-0.5 text-[11px] leading-tight ${bar.color} ${
+                        bar.mine ? "ring-2 ring-blue-400" : ""
+                      }`}
+                      style={{
+                        top: lane * LANE_PX + 4,
+                        height: LANE_PX - 8,
+                        left: `${((bar.start - axisStart) / span) * 100}%`,
+                        width: `${((bar.end - bar.start) / span) * 100}%`,
+                      }}
+                    >
+                      <span className="block truncate font-semibold">{bar.text}</span>
+                      <span className="block truncate tabular-nums opacity-70">
+                        {hhmm(bar.start)}〜{hhmm(bar.end)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div
-                className="relative h-11 flex-1"
-                style={{
-                  backgroundImage: "linear-gradient(to right, #e5e5e5 1px, transparent 1px)",
-                  backgroundSize: `${100 / hours}% 100%`,
-                }}
-              >
-                {row.bars.map((bar, i) => (
-                  <div
-                    key={i}
-                    title={`${bar.role} ${hhmm(bar.start)}〜${hhmm(bar.end)}`}
-                    className={`absolute top-1 bottom-1 overflow-hidden rounded px-1.5 py-0.5 text-[11px] leading-tight ${roleColor(bar.role)} ${
-                      row.isMe ? "ring-2 ring-blue-400" : ""
-                    }`}
-                    style={{
-                      left: `${((bar.start - axisStart) / span) * 100}%`,
-                      width: `${((bar.end - bar.start) / span) * 100}%`,
-                    }}
-                  >
-                    <span className="block truncate font-semibold">{bar.role}</span>
-                    <span className="block truncate tabular-nums opacity-70">
-                      {hhmm(bar.start)}〜{hhmm(bar.end)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-          {sorted.length === 0 && <p className="p-3 text-xs text-neutral-400">この日は担当者が未設定です</p>}
+            );
+          })}
+          {rows.length === 0 && <p className="p-3 text-xs text-neutral-400">この日は担当者が未設定です</p>}
         </div>
       </div>
     </div>

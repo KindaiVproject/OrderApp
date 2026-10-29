@@ -79,6 +79,7 @@
 - モーダルは `fixed` + `z-30`(ヘッダー `z-20` より上)。
 - **ブラウザ標準の `window.prompt` / `window.confirm` は使わない**(利用環境で動作しない)。確認は `ConfirmModal` またはアプリ内モーダルで行う。
 - 画面端まで引っ張ったときにページ全体(ヘッダー含む)が伸びる Android のオーバースクロール効果と、プルダウン更新は `overscroll-behavior-y: none` で無効化している(`globals.css`)。
+- **リンクカード(Discord / X 等)**: ルートレイアウトの `metadata` に Open Graph / Twitter Card を設定し、画像は `src/app/opengraph-image.png`(1200×630、ロゴ+「注文管理」)。URL をログイン前のページ(`/` → `/login`)にリダイレクトしても、クローラーは同じメタタグを読める。画像の絶対URLは `VERCEL_PROJECT_PRODUCTION_URL`(Vercel が自動設定する本番ドメイン)から組み立てる(`layout.tsx` の `metadataBase`)。カードの見た目を変えるときは画像を作り直し、Discord 側は古い表示がキャッシュされることがある。
 - 画像はドラッグ不可、長押しメニュー(保存/別タブで開く)をできる限り抑止(`globals.css` の `-webkit-touch-callout` と `Providers.tsx` の `contextmenu` 抑止)。テキスト選択は入力欄以外で無効。
 
 ### 5.1.1 アプリとしてのインストール(PWA)

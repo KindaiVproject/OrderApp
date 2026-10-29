@@ -1,18 +1,57 @@
+import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { auth } from "@/auth";
-import { getCurrentInstance, getMyInstances, requireSession } from "@/lib/instance";
+import { getCurrentInstance, getMyInstances } from "@/lib/instance";
 import { currentTimeMs } from "@/lib/datetime";
 import { prisma } from "@/lib/prisma";
 import MyShiftsClient from "./MyShiftsClient";
 import ShiftScopeSwitcher from "./ShiftScopeSwitcher";
 import InstanceShifts from "./InstanceShifts";
 
+// Link-preview card (Discord, X, Slack ...) for a shared /shifts link. The
+// image is the route's own `opengraph-image.png`. These replace the root
+// layout's openGraph object wholesale, so site name/type/locale are repeated.
+const SHIFTS_TITLE = "シフトを確認";
+const SHIFTS_DESCRIPTION = "注文管理 — ログインして自分のシフトを確認できます";
+export const metadata: Metadata = {
+  title: SHIFTS_TITLE,
+  description: SHIFTS_DESCRIPTION,
+  openGraph: {
+    siteName: "注文管理",
+    title: SHIFTS_TITLE,
+    description: SHIFTS_DESCRIPTION,
+    type: "website",
+    locale: "ja_JP",
+  },
+  twitter: { card: "summary_large_image", title: SHIFTS_TITLE, description: SHIFTS_DESCRIPTION },
+};
+
+// Link-preview crawlers are never signed in. Normally that means a redirect to
+// /login, and the card would then show the login page's tags — so they get a
+// small public page here instead (no data, just the tags above).
+const LINK_PREVIEW_BOT =
+  /Discordbot|Twitterbot|Slackbot|facebookexternalhit|LinkedInBot|WhatsApp|TelegramBot|Applebot/i;
+
 // /shifts has two modes: no query = my shifts across every instance I can
 // open; ?instance=<id> = that instance's full shift view. It lives outside
 // the (protected) group so it also opens from the account menu with no
 // instance selected.
 export default async function ShiftsPage({ searchParams }: { searchParams: Promise<{ instance?: string }> }) {
-  await requireSession();
+  const session = await auth();
+  if (!session?.user?.email) {
+    const ua = (await headers()).get("user-agent") ?? "";
+    if (LINK_PREVIEW_BOT.test(ua)) {
+      return (
+        <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-3 p-4 text-center">
+          <h1 className="text-base font-semibold text-neutral-800">{SHIFTS_TITLE}</h1>
+          <p className="text-xs text-neutral-500">{SHIFTS_DESCRIPTION}</p>
+        </main>
+      );
+    }
+    redirect("/login");
+  }
   const { instance: instanceParam } = await searchParams;
   // Shifts stay viewable on stopped instances, so every membership counts.
   const [openable, current] = await Promise.all([getMyInstances(), getCurrentInstance()]);

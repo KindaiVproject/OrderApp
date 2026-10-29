@@ -13,10 +13,12 @@ export default function AdminClient({
   initialInstances,
   initialAdminInvites,
   bootstrapAdminEmail,
+  adminNames,
 }: {
   initialInstances: InstanceWithMembers[];
   initialAdminInvites: AdminInviteModel[];
   bootstrapAdminEmail: string;
+  adminNames: Record<string, string>;
 }) {
   const [instances, setInstances] = useState(initialInstances);
   const [name, setName] = useState("");
@@ -419,7 +421,7 @@ export default function AdminClient({
 
         <ul className="flex flex-col gap-2">
           <li className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-3 text-sm shadow-sm">
-            <span>{bootstrapAdminEmail}</span>
+            <AdminLabel email={bootstrapAdminEmail} name={adminNames[bootstrapAdminEmail]} />
             <span className="rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] font-bold text-neutral-600">
               常時管理者
             </span>
@@ -431,7 +433,7 @@ export default function AdminClient({
                 key={invite.id}
                 className="flex items-center justify-between rounded-lg border border-neutral-200 bg-white p-3 text-sm shadow-sm"
               >
-                <span>{invite.email}</span>
+                <AdminLabel email={invite.email} name={adminNames[invite.email]} />
                 <button
                   type="button"
                   onClick={() => setRemovingAdmin(invite)}
@@ -565,6 +567,15 @@ function DuplicateInstanceModal({
         </div>
       </div>
     </div>
+  );
+}
+
+function AdminLabel({ email, name }: { email: string; name?: string }) {
+  return (
+    <span className="flex min-w-0 flex-col">
+      <span className="truncate font-medium text-neutral-800">{name ?? email}</span>
+      {name && <span className="truncate text-xs text-neutral-500">{email}</span>}
+    </span>
   );
 }
 

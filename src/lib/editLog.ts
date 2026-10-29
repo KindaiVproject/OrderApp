@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 
-export type EditLogEntityType = "ORDER" | "PRODUCT" | "MEMBER";
+export type EditLogEntityType = "ORDER" | "PRODUCT" | "MEMBER" | "SHIFT";
 export type EditLogAction = "CREATE" | "EDIT" | "CANCEL" | "COMPLETE" | "DELETE" | "INVITE";
 
 export async function logEdit(params: {

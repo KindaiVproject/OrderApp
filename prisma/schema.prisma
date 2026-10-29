@@ -15,18 +15,35 @@ datasource db {
 // --- Auth.js (NextAuth) models -------------------------------------------
 
 model User {
-  id            String    @id @default(uuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
+  id              String    @id @default(uuid())
+  name            String?
+  email           String    @unique
+  emailVerified   DateTime?
+  image           String?
   // Self-chosen name, set by the user on /account. Display priority:
   // InstanceMember.displayName -> User.displayName -> name (Google) -> email.
-  displayName   String?
+  displayName     String?
+  // Also notify 30 minutes before a shift starts (the start-time
+  // notification is always sent). On by default; toggled on /account.
+  shiftReminder30 Boolean   @default(true)
 
-  accounts    Account[]
-  sessions    Session[]
-  memberships InstanceMember[]
+  accounts          Account[]
+  sessions          Session[]
+  memberships       InstanceMember[]
+  pushSubscriptions PushSubscription[]
+}
+
+// One row per browser/device a user enabled notifications on (Web Push).
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Account {
@@ -89,17 +106,51 @@ model Instance {
   products Product[]
   orders   Order[]
   editLogs EditLog[]
+  shifts   Shift[]
 }
 
-model InstanceMember {
+// A time slot (minute precision, stored in UTC; shown in JST). Only global
+// Admins create/edit them. Who works it, and in which role, lives in
+// ShiftAssignment.
+model Shift {
   id         String   @id @default(uuid())
   instanceId String
   instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  startsAt   DateTime
+  endsAt     DateTime
+  createdAt  DateTime @default(now())
+
+  assignments ShiftAssignment[]
+
+  @@index([instanceId, startsAt])
+  @@index([startsAt])
+}
+
+model ShiftAssignment {
+  id               String         @id @default(uuid())
+  shiftId          String
+  shift            Shift          @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  memberId         String
+  member           InstanceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  // Free-text role for this slot (e.g. レジ, 調理, 呼び込み).
+  role             String
+  // Set once the reminder was sent so the per-minute cron never repeats it.
+  beforeNotifiedAt DateTime?
+  startNotifiedAt  DateTime?
+
+  @@index([shiftId])
+  @@index([memberId])
+}
+
+model InstanceMember {
+  id              String   @id @default(uuid())
+  instanceId      String
+  instance        Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   // The invited Google account email. This is the matching key so an
   // invite works even before that person has ever signed in.
-  email      String
-  userId     String?
-  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  email           String
+  userId          String?
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   // Per-instance admin: can view this instance's edit history, in addition
   // to whatever the global Admin (ADMIN_EMAIL/AdminInvite) can already see.
   // Managed by a global Admin from /admin, same as invites.
@@ -109,6 +160,8 @@ model InstanceMember {
   // priority: displayName -> user.name (once signed in) -> email.
   displayName     String?
   createdAt       DateTime @default(now())
+
+  shiftAssignments ShiftAssignment[]
 
   @@unique([instanceId, email])
 }
@@ -160,9 +213,9 @@ enum OrderStatus {
 }
 
 model Order {
-  id         String   @id @default(uuid())
-  instanceId String
-  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  id            String        @id @default(uuid())
+  instanceId    String
+  instance      Instance      @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   // 客の特徴 (customer description, e.g. "赤い帽子")
   customerNote  String?
   paymentMethod PaymentMethod

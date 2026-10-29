@@ -47,3 +47,9 @@ export function formatJstDateShort(dateKey: string): string {
 export function getJstHour(date: Date): number {
   return Number(jstParts(date).hour);
 }
+
+// Wall-clock now, kept out of component bodies (react-hooks/purity) — server
+// pages read it once per request and pass it down.
+export function currentTimeMs(): number {
+  return Date.now();
+}

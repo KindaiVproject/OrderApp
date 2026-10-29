@@ -62,19 +62,20 @@
 | `/login` | ログイン | 全員 | 「Googleでログイン」ボタンのみ |
 | `/` | 振り分け | - | 未ログイン→`/login`、インスタンス選択済み→`/order`、未選択→`/instances` |
 | `/instances` | インスタンス選択 | ログイン済 | 招待されたインスタンスの一覧から選択。**「ログアウト」リンクあり**(未招待でもここから抜けられる)。選択はCookie(`current_instance_id`、30日、httpOnly)に保存。Adminには `/admin` へのリンク。「アカウント設定」リンクあり |
-| `/account` | アカウント設定 | ログイン済 | Googleアイコン・メールアドレス(本人のもの)を表示し、**自分の表示名**(30文字以内)を設定する。空にするとGoogleアカウント名に戻る。インスタンスを選択していなくても開ける(`(protected)` の外)。ヘッダー右端のアイコンから遷移 |
+| `/account` | アカウント設定 | ログイン済 | Googleアイコン・メールアドレス(本人のもの)を表示し、**自分の表示名**(30文字以内)を設定する。**シフトの通知**欄で、この端末の通知オン/オフ・テスト通知・「30分前にも通知する」(既定オン)を設定する。空にするとGoogleアカウント名に戻る。インスタンスを選択していなくても開ける(`(protected)` の外)。ヘッダー右端のアイコンから遷移 |
 | `/order` | 注文 | メンバー | 商品カード(画像+商品名、正方形)をタップで数量+1。グリッドはスマホ3列/幅640px以上4列/768px以上5列で、スクロール量を減らしている。カード上の ＋/− で増減。「客の特徴(任意)」「支払い方法(必須)」を入力して「注文を確定する」 |
 | `/kitchen` | 厨房 | メンバー | 待機中の注文を古い順に表示。**2.5秒ごとにポーリング更新**(編集/完了/キャンセルのモーダル表示中は停止)。右上に待機中の件数を大きく表示(0件=グレー、1〜4件=黄、5件以上=赤。しきい値は `KitchenClient.tsx` の `WAITING_ALERT_COUNT`)。「作るべき個数」(商品名ごとの合計、円形アイコン付き)、チェックボックスで複数選択→「まとめて完了」、個別の「提供完了」「編集」「キャンセル」 |
 | `/history` | 注文履歴 | メンバー | 全注文を新しい順に表示(状態バッジ: 待機中/提供済み/キャンセル済み)。キャンセル済み以外は「編集」可。**キャンセル操作は厨房画面のみ**(履歴からは不可)。「CSV出力」ボタン |
 | `/products` | 商品管理 | メンバー | 商品の追加・編集・削除、画像の設定 |
 | `/stats` | 売上統計 | メンバー | 全日の売上推移(日別)、日別の売上個数、選択した日の時間別売上。各グラフに表表示への切替あり |
+| `/shifts` | シフト | メンバー(追加・編集・削除は Admin のみ) | インスタンスごとのシフト一覧。日付ごとに「開始〜終了(分単位、JST)」「担当者(名前+Googleアイコン)と役割」を表示。自分の担当があるシフトは枠を青で強調。終了したシフトは既定で非表示(「終了したシフトも表示」で切替)。Admin は「シフトを追加」・各シフトの編集/削除ができる。担当者は **メールアドレスではなく名前**で表示(6.1章の表示名の基準) |
 | `/members` | メンバー管理 | インスタンス管理者・Admin | 自インスタンスのメンバー一覧、招待(複数アドレス同時可)、「一般 ⇔ インスタンス管理者」の切替 |
 | `/edit-log` | 編集履歴 | インスタンス管理者・Admin | 直近300件を新しい順に表示 |
 | `/admin` | インスタンス管理 | Admin | 6章参照 |
 
 ### 5.1 共通UI
 
-- ヘッダーは画面上部に固定(sticky)。ナビ(スライドするインジケーター付き): 注文 / 厨房 / 注文履歴 / 商品 / 統計。その横の別グループに 切替 / メンバー・編集履歴(インスタンス管理者とAdminのみ)/ Admin(Adminのみ)。こちらは現在のページが反転表示されるだけでインジケーターは使わない(タブ数が増えて折り返し、表示が崩れるのを防ぐため)。インジケーターは折り返し時も位置・高さを個別に追従し、一致するタブがないページでは非表示。
+- ヘッダーは画面上部に固定(sticky)。ナビ(スライドするインジケーター付き): 注文 / 厨房 / 注文履歴 / 商品 / 統計。その横の別グループに 切替 / シフト / メンバー・編集履歴(インスタンス管理者とAdminのみ)/ Admin(Adminのみ)。こちらは現在のページが反転表示されるだけでインジケーターは使わない(タブ数が増えて折り返し、表示が崩れるのを防ぐため)。インジケーターは折り返し時も位置・高さを個別に追従し、一致するタブがないページでは非表示。
 - 右側: 自分のGoogleアイコン(押すと `/account`)、ログアウト(アイコンのみ)。アイコンがない/読み込めない場合は名前の頭文字の丸を表示(`components/Avatar.tsx`)。
 - モーダルは `fixed` + `z-30`(ヘッダー `z-20` より上)。
 - **ブラウザ標準の `window.prompt` / `window.confirm` は使わない**(利用環境で動作しない)。確認は `ConfirmModal` またはアプリ内モーダルで行う。
@@ -139,6 +140,7 @@
 | 商品 | 新規登録 / 編集 / 削除 | 商品名・価格(変更前→後)・画像変更 |
 | メンバー | 招待(新規のみ) | 招待したメールアドレス |
 | メンバー | 権限の切替 | 変更前→変更後の権限 |
+| シフト | 追加 / 編集 / 削除 | 日付・時間帯・担当人数 |
 
 記録されないもの: 表示名の変更、Admin の招待/削除、インスタンス自体の作成・複製・停止・削除、注文の物理削除。
 
@@ -146,7 +148,10 @@
 
 | モデル | 主な項目 | 備考 |
 |---|---|---|
-| `User` / `Account` / `Session` / `VerificationToken` | Auth.js 標準 | DBセッション。`User.displayName` は本人が設定する表示名(Auth.js 標準項目ではない追加列) |
+| `User` / `Account` / `Session` / `VerificationToken` | Auth.js 標準 | DBセッション。追加列: `displayName`(本人が設定する表示名)、`shiftReminder30`(30分前通知、既定 true) |
+| `PushSubscription` | userId, endpoint(unique), p256dh, auth | 通知をオンにしたブラウザ/端末ごとの Web Push 購読情報。通知を切る・送信先が失効(404/410)したら削除 |
+| `Shift` | instanceId, startsAt, endsAt | 時間帯(UTC保存、表示はJST、分単位)。インスタンス削除でカスケード削除 |
+| `ShiftAssignment` | shiftId, memberId, role, beforeNotifiedAt?, startNotifiedAt? | シフト×担当者×役割(役割は自由入力、20文字以内)。`*NotifiedAt` は通知送信済みの印で二重送信防止 |
 | `AdminInvite` | email(unique) | Admin 追加用 |
 | `Instance` | name, label, active, createdAt | 削除すると配下をカスケード削除 |
 | `InstanceMember` | instanceId, email, userId?, isInstanceAdmin, displayName? | `(instanceId, email)` が unique。招待はメールで照合し、初回ログイン時に `userId` を紐付け(`src/auth.ts` の `signIn` イベント) |
@@ -155,7 +160,7 @@
 | `OrderItem` | productId?, productName, imageUrl?, unitPrice, quantity | スナップショット保持。商品削除時 `productId` は null に |
 | `EditLog` | instanceId, entityType(ORDER/PRODUCT/MEMBER), entityId, action(CREATE/EDIT/CANCEL/COMPLETE/DELETE/INVITE), summary, actorEmail, createdAt | `(instanceId, createdAt)` に index |
 
-マイグレーションは `prisma/migrations/`(init → 注文キャンセル+明細画像 → インスタンス管理者+編集履歴 → メンバー表示名 → ユーザー表示名)。
+マイグレーションは `prisma/migrations/`(init → 注文キャンセル+明細画像 → インスタンス管理者+編集履歴 → メンバー表示名 → ユーザー表示名 → シフトと Web Push)。
 
 ## 9. CSV出力(`GET /api/orders/export`)
 
@@ -188,7 +193,6 @@
 | PATCH / DELETE | `/api/products/[id]` | メンバー | 編集 / 論理削除 |
 | POST | `/api/products/upload` | メンバー | 画像アップロード(multipart、5MB以下) |
 | POST | `/api/instances/select` | ログイン済 | 現在のインスタンスをCookieに設定 |
-| PATCH | `/api/account` | ログイン済 | 自分の表示名(`User.displayName`)を更新。30文字以内、空でクリア |
 | POST | `/api/admin/instances` | Admin | インスタンス作成 |
 | PATCH / DELETE | `/api/admin/instances/[id]` | Admin | 名前・ラベル・稼働状態の更新 / 削除 |
 | POST | `/api/admin/instances/[id]/duplicate` | Admin | 複製 |
@@ -197,6 +201,12 @@
 | DELETE | `/api/admin/instances/[id]/members/[memberId]` | Admin | メンバー削除 |
 | POST | `/api/admin/admins` | Admin | Admin招待 |
 | DELETE | `/api/admin/admins/[id]` | Admin | Admin権限の削除 |
+| POST | `/api/shifts` | Admin | シフト追加(日付・開始・終了・担当と役割。編集履歴に記録) |
+| PATCH / DELETE | `/api/shifts/[id]` | Admin | シフト編集(担当は丸ごと置換=通知の送信済み印もリセット)/ 削除 |
+| PATCH | `/api/account` | ログイン済 | 自分の表示名と `shiftReminder30` の更新 |
+| POST / DELETE | `/api/push/subscribe` | ログイン済 | この端末の通知購読の登録 / 解除 |
+| POST | `/api/push/test` | ログイン済 | 自分の端末へテスト通知 |
+| GET | `/api/cron/shift-notify` | `Authorization: Bearer $CRON_SECRET` | 通知の送信(外部cronが毎分呼ぶ。下記) |
 | GET / POST | `/api/auth/[...nextauth]` | - | Auth.js |
 
 ## 12. 環境変数
@@ -212,6 +222,20 @@
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth クライアント |
 | `ADMIN_EMAIL` | 常時管理者(ブートストラップAdmin)のメールアドレス |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob の読み書きトークン |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Web Push の鍵。`npx web-push generate-vapid-keys` で1回だけ生成して両方設定(秘密鍵は公開しない)。未設定だと通知機能は無効(アカウント設定に「未設定」と表示) |
+| `VAPID_SUBJECT` | Web Push の連絡先(`mailto:` かURL)。省略可 |
+| `CRON_SECRET` | `/api/cron/shift-notify` を呼ぶ側と共有する合言葉(推測されにくい長いランダム文字列) |
+
+### 12.1 シフト通知の仕組みと外部cronの設定
+
+- 通知は **Web Push**(ブラウザ標準、Service Worker `public/sw.js`)。アカウント設定で「通知をオンにする」→ ブラウザの許可 → 購読情報を `PushSubscription` に保存。
+- 送信タイミングは `GET /api/cron/shift-notify` が決める: 開始の30分前〜開始(ユーザーが「30分前にも通知する」をオンにしている場合のみ)と、開始〜開始15分後(常に。それより遅れた分は送らない)。担当(`ShiftAssignment`)ごとに1回だけ。担当者がまだ一度もログインしていない(`userId` なし)場合は送らない。
+- **Vercel Hobby の Cron は1日1回までなので使えない。** 外部の無料サービス **cron-job.org** から **毎分** 次を呼ぶ:
+  - URL: `https://<本番ドメイン>/api/cron/shift-notify`、メソッド GET
+  - ヘッダー: `Authorization: Bearer <CRON_SECRET と同じ値>`
+  - 成功時は `{"checked":N,"sent":M}` を返す。設定不足は 401(合言葉違い)/ 503(VAPID 未設定)。
+- 通知が届かないときの確認順: ①アカウント設定が「この端末で通知オン」か(テスト通知で確認) ②cron-job.org の実行履歴が毎分成功しているか ③Vercel の環境変数 ④Vercel の Deployment Protection で `/api/cron/...` が弾かれていないか(弾かれると 401 の HTML が返る)。
+- iPhone / iPad は iOS 16.4 以降で、**ホーム画面に追加したアプリ**として開いた場合のみ Web Push が使える。Android(Chrome)は通常のブラウザでも可。
 
 ## 13. 開発手順
 
@@ -255,6 +279,9 @@ npm run db:seed    # サンプルインスタンス作成(ADMIN_EMAIL が必要)
 - 注文のAPI物理削除(`DELETE /api/orders/[id]`)はUIから使っておらず、履歴にも残らない。不要なら削除を検討。
 - **メールアドレスの可視範囲**: 他人のメールアドレスが見えるのは Admin 画面とメンバー管理(`/members`)・編集履歴(`/edit-log`)のみで、いずれもインスタンス管理者・Admin 限定。一般メンバーが開く画面・APIには他人のメールアドレスは含まれない(自分のものは `/instances`・`/account` に表示)。新しい画面を足すときもこの前提を守ること。
 - インスタンス管理者はメンバーの招待と権限の付与・剥奪ができるが、メンバーの削除・表示名変更はできない(Admin のみ)。
-- 複製では表示名・インスタンス管理者の権限は引き継がれない。
+- 複製では表示名・インスタンス管理者の権限・シフトは引き継がれない。
+- シフトは同日内(終了が開始より後)のみ。日をまたぐ場合は2つに分ける。シフトを編集すると、そのシフトの通知済みの印がリセットされ、まだ来ていない通知が再度送られる。
+- 通知の精度は外部cron(毎分)に依存する。cron が止まると通知も止まる。
+- 法的な整理(電気通信事業法など)は、本機能が自分たちのメンバー向けの業務連絡に限られる前提で問題ないと判断しているが、弁護士の確認を受けたものではない。
 - Admin の招待/削除、インスタンスの作成・停止・削除は編集履歴に残らない。
 - 画像はアップロード後に不要になっても Blob から自動削除されない。

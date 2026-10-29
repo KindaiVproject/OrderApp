@@ -21,6 +21,7 @@ const BASE_NAV_ITEMS = [
 // indicator. "manage" = instance admin or Admin; "admin" = Admin only.
 const SECONDARY_LINKS: { href: string; label: string; requires?: "manage" | "admin" }[] = [
   { href: "/instances", label: "切替" },
+  { href: "/shifts", label: "シフト" },
   { href: "/members", label: "メンバー", requires: "manage" },
   { href: "/edit-log", label: "編集履歴", requires: "manage" },
   { href: "/admin", label: "Admin", requires: "admin" },

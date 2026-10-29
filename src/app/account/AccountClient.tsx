@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Avatar from "@/components/Avatar";
+import NotificationSettings from "./NotificationSettings";
 
 const MAX_LENGTH = 30;
 
@@ -11,11 +12,15 @@ export default function AccountClient({
   googleName,
   image,
   initialDisplayName,
+  initialReminder30,
+  vapidPublicKey,
 }: {
   email: string;
   googleName: string | null;
   image: string | null;
   initialDisplayName: string;
+  initialReminder30: boolean;
+  vapidPublicKey: string;
 }) {
   const router = useRouter();
   const [displayName, setDisplayName] = useState(initialDisplayName);
@@ -98,6 +103,8 @@ export default function AccountClient({
           {error && <span className="text-xs text-red-600">{error}</span>}
         </div>
       </form>
+
+      <NotificationSettings vapidPublicKey={vapidPublicKey} initialReminder30={initialReminder30} />
     </div>
   );
 }

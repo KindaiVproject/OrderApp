@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireSession } from "@/lib/instance";
+import { getVapidPublicKey } from "@/lib/webpush";
 import AccountClient from "./AccountClient";
 
 export default async function AccountPage() {
@@ -12,6 +13,8 @@ export default async function AccountPage() {
       googleName={user?.name ?? null}
       image={user?.image ?? null}
       initialDisplayName={user?.displayName ?? ""}
+      initialReminder30={user?.shiftReminder30 ?? true}
+      vapidPublicKey={getVapidPublicKey()}
     />
   );
 }

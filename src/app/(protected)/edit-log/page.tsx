@@ -8,6 +8,7 @@ const ENTITY_LABELS: Record<string, string> = {
   ORDER: "注文",
   PRODUCT: "商品",
   MEMBER: "メンバー",
+  SHIFT: "シフト",
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -44,7 +45,7 @@ export default async function EditLogPage() {
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
       <h1 className="text-base font-semibold text-neutral-800">編集履歴</h1>
       <p className="text-xs text-neutral-500">
-        注文・商品の登録/編集/キャンセル/完了/削除、メンバー招待の記録です。インスタンス管理者・管理者のみ閲覧できます。
+        注文・商品の登録/編集/キャンセル/完了/削除、シフト・メンバー招待の記録です。インスタンス管理者・管理者のみ閲覧できます。
       </p>
 
       <ul className="flex flex-col gap-2">

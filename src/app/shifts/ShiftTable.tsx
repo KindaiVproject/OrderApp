@@ -1,25 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Avatar from "@/components/Avatar";
 import { downloadSchedulePng } from "./exportPng";
 import type { ShiftFormInitial } from "./ShiftFormModal";
 import { assignLanes, buildSchedule, hhmm, scheduleDates, type ScheduleMode } from "./scheduleLayout";
 import { dateLabel, roleBorder, roleColor, type RoleColors, type ShiftItem } from "./shiftTypes";
 
-// Minimum width per hour, and the room a bar needs for an icon, a name and a
-// time range. They are the same number on purpose: a one-hour bar then fits its
-// hour exactly, so back-to-back one-hour shifts (9-10, 10-11) sit side by side
-// instead of being pushed onto a second line. The track is flex-1, so on a wide
-// parent the hours stretch to fill it; the room comes from the parent.
-const HOUR_PX = 108;
-const LABEL_PX = 120;
-const LANE_PX = 56;
-const BAR_INSET_PX = 5;
-const MIN_BAR_PX = 108;
-// Shorter shifts get a bar at least this wide; lane packing treats them as
-// that long, so they stack only when they would really collide.
-const MIN_BAR_MINUTES = Math.ceil((MIN_BAR_PX / HOUR_PX) * 60);
+// Scrolling should be a last resort: the table must fit a landscape phone
+// (about 900px) for a 9:00-20:00 day, so an hour may shrink to HOUR_MIN_PX
+// (11h * 40 + the label column = ~540px) and the hours otherwise stretch to
+// fill the parent. Bars adapt to their width (see the @container below), so a
+// narrow one-hour bar stacks icon / name / time instead of clipping.
+const HOUR_MIN_PX = 40;
+const LABEL_PX = 96;
+const LANE_PX = 64;
+const BAR_INSET_PX = 4;
+// A bar shorter than this is drawn this wide (an icon plus a little text).
+const MIN_BAR_PX = 56;
+
+// Width of an element, kept up to date (for the real pixels-per-hour).
+function useElementWidth() {
+  const [el, setEl] = useState<HTMLElement | null>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    if (!el) return;
+    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [el]);
+  return [setEl, width] as const;
+}
 
 // シフト表: one day at a time with a time axis across. Rows are roles by
 // default (who covers 調理 / レジ when, with their icons), or people (what each
@@ -49,6 +60,7 @@ export default function ShiftTable({
   const [mode, setMode] = useState<ScheduleMode>("role");
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [axisRef, trackPx] = useElementWidth();
   const date = picked && dates.includes(picked) ? picked : dates[0];
 
   if (!date) return <p className="text-sm text-neutral-400">表示できるシフトがありません</p>;
@@ -56,7 +68,10 @@ export default function ShiftTable({
   const { rows, axisStart, axisEnd } = buildSchedule(items, date, mode, roleOrder, Boolean(onAdd));
   const span = axisEnd - axisStart;
   const hours = span / 60;
-  const trackWidth = hours * HOUR_PX;
+  const minTrackWidth = hours * HOUR_MIN_PX;
+  // Real pixels per hour once measured; the minimum before that.
+  const pxPerHour = trackPx > 0 ? trackPx / hours : HOUR_MIN_PX;
+  const minBarMinutes = Math.ceil((MIN_BAR_PX / pxPerHour) * 60);
   const hourMarks = Array.from({ length: hours }, (_, i) => axisStart + i * 60);
 
   async function exportPng() {
@@ -119,10 +134,10 @@ export default function ShiftTable({
       {exportError && <p className="text-xs text-red-600">{exportError}</p>}
 
       <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white shadow-sm">
-        <div style={{ minWidth: LABEL_PX + trackWidth }}>
+        <div style={{ minWidth: LABEL_PX + minTrackWidth }}>
           <div className="flex border-b border-neutral-200 text-[10px] text-neutral-500">
             <div className="sticky left-0 z-10 shrink-0 bg-white" style={{ width: LABEL_PX }} />
-            <div className="relative h-6 flex-1">
+            <div ref={axisRef} className="relative h-6 flex-1">
               {hourMarks.map((m, i) => (
                 <span
                   key={m}
@@ -136,7 +151,7 @@ export default function ShiftTable({
           </div>
 
           {rows.map((row) => {
-            const { placed, lanes } = assignLanes(row.bars, MIN_BAR_MINUTES);
+            const { placed, lanes } = assignLanes(row.bars, minBarMinutes);
             return (
               <div key={row.key} className="flex border-b border-neutral-100 last:border-b-0">
                 <div
@@ -205,7 +220,7 @@ export default function ShiftTable({
                             },
                           }
                         : {})}
-                      className={`absolute ${onEdit ? "cursor-pointer hover:brightness-95" : ""} flex items-center gap-1.5 overflow-hidden rounded-md border px-2 py-1 leading-snug ${roleColor(bar.roleName, roleColors)} ${roleBorder(bar.roleName, roleColors)} ${
+                      className={`absolute ${onEdit ? "cursor-pointer hover:brightness-95" : ""} overflow-hidden rounded-md border ${roleColor(bar.roleName, roleColors)} ${roleBorder(bar.roleName, roleColors)} ${
                         bar.mine ? "ring-2 ring-blue-400" : ""
                       }`}
                       style={{
@@ -216,15 +231,21 @@ export default function ShiftTable({
                         minWidth: MIN_BAR_PX,
                       }}
                     >
-                      {mode === "role" && <Avatar name={bar.personName} image={bar.image} size={22} />}
-                      <span className="min-w-0">
-                        <span className="block truncate text-xs font-semibold">
-                          {mode === "role" ? bar.personName : bar.roleName}
-                        </span>
-                        <span className="block truncate text-[11px] tabular-nums opacity-70">
-                          {hhmm(bar.start)}〜{hhmm(bar.end)}
-                        </span>
-                      </span>
+                      {/* A container query on the bar's own width: stacked when
+                          narrow, side by side from 104px up (@min-[104px]). */}
+                      <div className="@container h-full px-1 py-0.5">
+                        <div className="flex h-full min-w-0 flex-col justify-center gap-0.5 leading-tight @min-[104px]:flex-row @min-[104px]:items-center @min-[104px]:gap-1.5">
+                          {mode === "role" && <Avatar name={bar.personName} image={bar.image} size={20} />}
+                          <span className="min-w-0">
+                            <span className="block truncate text-[11px] font-semibold @min-[104px]:text-xs">
+                              {mode === "role" ? bar.personName : bar.roleName}
+                            </span>
+                            <span className="block truncate text-[10px] tabular-nums opacity-70 @min-[104px]:text-[11px]">
+                              {hhmm(bar.start)}〜{hhmm(bar.end)}
+                            </span>
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

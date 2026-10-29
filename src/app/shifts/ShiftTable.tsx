@@ -5,11 +5,17 @@ import Avatar from "@/components/Avatar";
 import { formatJstDateKey, formatJstTime } from "@/lib/datetime";
 import { timeToMinutes } from "@/lib/shifts";
 import type { ShiftFormInitial } from "./ShiftFormModal";
-import { dateLabel, roleColor, type ShiftItem } from "./shiftTypes";
+import { dateLabel, roleBorder, roleColor, type ShiftItem } from "./shiftTypes";
 
-const HOUR_PX = 72;
-const LABEL_PX = 112;
-const LANE_PX = 44;
+// Roomy on purpose: a bar must fit a name and a time range without clipping.
+const HOUR_PX = 112;
+const LABEL_PX = 120;
+const LANE_PX = 56;
+const BAR_INSET_PX = 5;
+// Even a 15-minute shift gets a readable bar; lane packing uses this visual
+// length so neighbours stack instead of overlapping.
+const MIN_BAR_PX = 104;
+const MIN_BAR_MINUTES = Math.ceil((MIN_BAR_PX / HOUR_PX) * 60);
 
 type Bar = {
   title: string;
@@ -17,6 +23,7 @@ type Bar = {
   start: number;
   end: number;
   color: string;
+  border: string;
   mine: boolean;
 };
 type Row = {
@@ -40,7 +47,7 @@ function assignLanes(bars: Bar[]) {
   const placed = sorted.map((bar) => {
     let lane = laneEnds.findIndex((end) => end <= bar.start);
     if (lane === -1) lane = laneEnds.length;
-    laneEnds[lane] = bar.end;
+    laneEnds[lane] = Math.max(bar.end, bar.start + MIN_BAR_MINUTES);
     return { bar, lane };
   });
   return { placed, lanes: Math.max(1, laneEnds.length) };
@@ -114,6 +121,7 @@ export default function ShiftTable({
         start,
         end,
         color: roleColor(a.role),
+        border: roleBorder(a.role),
         mine: a.isMe,
       });
     }
@@ -245,18 +253,19 @@ export default function ShiftTable({
                     <div
                       key={i}
                       title={bar.title}
-                      className={`absolute overflow-hidden rounded px-1.5 py-0.5 text-[11px] leading-tight ${bar.color} ${
+                      className={`absolute flex flex-col justify-center overflow-hidden rounded-md border px-2 py-1 leading-snug ${bar.color} ${bar.border} ${
                         bar.mine ? "ring-2 ring-blue-400" : ""
                       }`}
                       style={{
-                        top: lane * LANE_PX + 4,
-                        height: LANE_PX - 8,
+                        top: lane * LANE_PX + BAR_INSET_PX,
+                        height: LANE_PX - BAR_INSET_PX * 2,
                         left: `${((bar.start - axisStart) / span) * 100}%`,
                         width: `${((bar.end - bar.start) / span) * 100}%`,
+                        minWidth: MIN_BAR_PX,
                       }}
                     >
-                      <span className="block truncate font-semibold">{bar.text}</span>
-                      <span className="block truncate tabular-nums opacity-70">
+                      <span className="block truncate text-xs font-semibold">{bar.text}</span>
+                      <span className="block truncate text-[11px] tabular-nums opacity-70">
                         {hhmm(bar.start)}〜{hhmm(bar.end)}
                       </span>
                     </div>

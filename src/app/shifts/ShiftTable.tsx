@@ -7,14 +7,15 @@ import { timeToMinutes } from "@/lib/shifts";
 import type { ShiftFormInitial } from "./ShiftFormModal";
 import { dateLabel, roleBorder, roleColor, type ShiftItem } from "./shiftTypes";
 
-// Roomy on purpose: a bar must fit a name and a time range without clipping.
-const HOUR_PX = 112;
+// Minimum width per hour. The track is flex-1, so on a wide parent the hours
+// stretch to fill it; the room comes from the parent, not from fat cells.
+const HOUR_PX = 72;
 const LABEL_PX = 120;
 const LANE_PX = 56;
 const BAR_INSET_PX = 5;
 // Even a 15-minute shift gets a readable bar; lane packing uses this visual
 // length so neighbours stack instead of overlapping.
-const MIN_BAR_PX = 104;
+const MIN_BAR_PX = 84;
 const MIN_BAR_MINUTES = Math.ceil((MIN_BAR_PX / HOUR_PX) * 60);
 
 type Bar = {

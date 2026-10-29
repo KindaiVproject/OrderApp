@@ -91,7 +91,8 @@ export default function ShiftsClient({
   const rowsOf = (s: ShiftView) => s.assignments.map((a) => ({ memberId: a.memberId, role: a.role }));
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
+    // The schedule table gets a much wider parent (the list stays narrow).
+    <div className={`mx-auto flex w-full flex-col gap-4 p-4 ${mode === "table" ? "max-w-6xl" : "max-w-3xl"}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-base font-semibold text-neutral-800">シフト</h1>
         {isAdmin && (

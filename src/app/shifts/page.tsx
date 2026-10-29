@@ -119,6 +119,8 @@ async function MyShifts() {
         nowMs={currentTimeMs()}
         shifts={assignments.map((a) => ({
           id: a.id,
+          shiftId: a.shiftId,
+          calendarAdded: a.calendarAddedAt !== null,
           instanceId: a.shift.instanceId,
           instanceName: a.shift.instance.name,
           instanceLabel: a.shift.instance.label,

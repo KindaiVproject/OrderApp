@@ -54,14 +54,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (sameTime && role === assignment.role) return NextResponse.json({ ok: true, unchanged: true });
 
   if (sameTime) {
-    await prisma.shiftAssignment.update({ where: { id }, data: { role } });
+    await prisma.shiftAssignment.update({ where: { id }, data: { role, calendarAddedAt: null } });
   } else if (shift.assignments.length === 1) {
     // Alone on the shift: re-time it. Reminders re-arm for the new time.
     await prisma.$transaction([
       prisma.shift.update({ where: { id: shift.id }, data: { startsAt, endsAt } }),
       prisma.shiftAssignment.update({
         where: { id },
-        data: { role, beforeNotifiedAt: null, startNotifiedAt: null },
+        data: { role, beforeNotifiedAt: null, startNotifiedAt: null, calendarAddedAt: null },
       }),
     ]);
   } else {

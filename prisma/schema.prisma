@@ -158,6 +158,10 @@ model ShiftAssignment {
   // Set once the reminder was sent so the per-minute cron never repeats it.
   beforeNotifiedAt DateTime?
   startNotifiedAt  DateTime?
+  // When this was last put into the person's calendar (an .ics download). Reset
+  // to null when the shift's time or role changes, so it counts as
+  // "not in the calendar" again.
+  calendarAddedAt  DateTime?
 
   @@index([shiftId])
   @@index([memberId])

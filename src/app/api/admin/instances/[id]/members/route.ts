@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { canManageMembers } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
-import { logEdit } from "@/lib/editLog";
+import { MEMBER_INVITE_SUFFIX, logEdit } from "@/lib/editLog";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -38,7 +38,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       entityType: "MEMBER",
       entityId: member.id,
       action: "INVITE",
-      summary: `${email} を招待`,
+      summary: `${email}${MEMBER_INVITE_SUFFIX}`,
       actorEmail: session?.user?.email,
     });
   }

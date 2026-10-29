@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { requireCurrentInstance, isInstanceAdmin } from "@/lib/instance";
+import { MEMBER_INVITE_SUFFIX, MEMBER_ROLE_MARKER } from "@/lib/editLog";
 import { resolveName } from "@/lib/memberName";
 import { prisma } from "@/lib/prisma";
 import { formatJstDateTime } from "@/lib/datetime";
@@ -42,23 +43,47 @@ export default async function EditLogPage() {
     take: 300,
   });
 
-  // Show "name (email)" with the same name priority as the member lists. The
-  // current member's per-instance name wins; people who were removed since
-  // fall back to their account, then to the bare email.
+  // Names are resolved at render time (not stored in the log), so past
+  // entries pick up names too. Same priority as the member lists: the
+  // current member's per-instance name, then the account's, then the email.
+  // Invite summaries carry the invitee's email, so people removed since can
+  // still be matched to their account by email.
+  const memberLogs = logs.filter((log) => log.entityType === "MEMBER");
+  const inviteEmails = memberLogs
+    .filter((log) => log.action === "INVITE" && log.summary.endsWith(MEMBER_INVITE_SUFFIX))
+    .map((log) => log.summary.slice(0, -MEMBER_INVITE_SUFFIX.length));
   const actorEmails = [...new Set(logs.map((log) => log.actorEmail))];
+  const lookupEmails = [...new Set([...actorEmails, ...inviteEmails])];
   const [members, users] = await Promise.all([
     prisma.instanceMember.findMany({
-      where: { instanceId: instance.id, email: { in: actorEmails } },
+      where: {
+        instanceId: instance.id,
+        OR: [{ email: { in: lookupEmails } }, { id: { in: memberLogs.map((log) => log.entityId) } }],
+      },
       include: { user: true },
     }),
-    prisma.user.findMany({ where: { email: { in: actorEmails } } }),
+    prisma.user.findMany({ where: { email: { in: lookupEmails } } }),
   ]);
-  const actorLabels = new Map<string, string>();
-  for (const email of actorEmails) {
-    const member = members.find((m) => m.email === email);
+
+  function label(email: string, member?: (typeof members)[number]) {
     const user = member?.user ?? users.find((u) => u.email === email);
     const name = resolveName(email, member?.displayName, user);
-    actorLabels.set(email, name === email ? email : `${name}(${email})`);
+    return name === email ? email : `${name}(${email})`;
+  }
+  const actorLabels = new Map(
+    actorEmails.map((email) => [email, label(email, members.find((m) => m.email === email))]),
+  );
+
+  function summaryOf(log: (typeof logs)[number]) {
+    if (log.entityType !== "MEMBER") return log.summary;
+    const member = members.find((m) => m.id === log.entityId);
+    if (log.action === "INVITE" && log.summary.endsWith(MEMBER_INVITE_SUFFIX)) {
+      const email = member?.email ?? log.summary.slice(0, -MEMBER_INVITE_SUFFIX.length);
+      return `${label(email, member)}${MEMBER_INVITE_SUFFIX}`;
+    }
+    const at = log.summary.indexOf(MEMBER_ROLE_MARKER);
+    if (member && at > 0) return `${label(member.email, member)}${log.summary.slice(at)}`;
+    return log.summary;
   }
 
   return (
@@ -81,7 +106,7 @@ export default async function EditLogPage() {
               </span>
               <span>{actorLabels.get(log.actorEmail) ?? log.actorEmail}</span>
             </div>
-            <p className="mt-1 text-sm text-neutral-700">{log.summary}</p>
+            <p className="mt-1 text-sm text-neutral-700">{summaryOf(log)}</p>
           </li>
         ))}
         {logs.length === 0 && <p className="text-sm text-neutral-400">まだ編集履歴がありません</p>}

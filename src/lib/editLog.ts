@@ -1,5 +1,11 @@
 import { prisma } from "@/lib/prisma";
 
+// MEMBER summaries are written as "<who><suffix/marker>…". The edit-log page
+// swaps <who> for the member's current name when rendering, so these strings
+// must stay in sync with the writers (members API routes).
+export const MEMBER_INVITE_SUFFIX = " を招待";
+export const MEMBER_ROLE_MARKER = " の権限: ";
+
 export type EditLogEntityType = "ORDER" | "PRODUCT" | "MEMBER" | "SHIFT";
 export type EditLogAction = "CREATE" | "EDIT" | "CANCEL" | "COMPLETE" | "DELETE" | "INVITE";
 

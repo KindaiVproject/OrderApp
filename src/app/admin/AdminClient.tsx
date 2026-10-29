@@ -291,6 +291,24 @@ export default function AdminClient({
 
             {expandedInstances.has(instance.id) && (
               <>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    value={inviteEmail[instance.id] ?? ""}
+                    onChange={(e) => setInviteEmail((prev) => ({ ...prev, [instance.id]: e.target.value }))}
+                    placeholder="招待するGoogleアカウントのメール(複数可: カンマ・スペース区切り)"
+                    className="flex-1 rounded border border-neutral-300 px-2 py-1 text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => invite(instance.id)}
+                    className="rounded bg-neutral-900 px-2 py-1 text-xs font-medium text-white"
+                  >
+                    招待
+                  </button>
+                </div>
+                {inviteError[instance.id] && (
+                  <p className="mt-1 text-xs text-red-600">{inviteError[instance.id]}</p>
+                )}
                 <ul className="mt-2 flex flex-col gap-2">
                   {instance.members.map((member) => (
                     <li key={member.id} className="rounded-md border border-neutral-200 bg-neutral-50 p-2">
@@ -372,25 +390,6 @@ export default function AdminClient({
                     <li className="text-xs text-neutral-400">メンバーがいません</li>
                   )}
                 </ul>
-
-                <div className="mt-2 flex gap-2">
-                  <input
-                    value={inviteEmail[instance.id] ?? ""}
-                    onChange={(e) => setInviteEmail((prev) => ({ ...prev, [instance.id]: e.target.value }))}
-                    placeholder="招待するGoogleアカウントのメール(複数可: カンマ・スペース区切り)"
-                    className="flex-1 rounded border border-neutral-300 px-2 py-1 text-xs"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => invite(instance.id)}
-                    className="rounded bg-neutral-900 px-2 py-1 text-xs font-medium text-white"
-                  >
-                    招待
-                  </button>
-                </div>
-                {inviteError[instance.id] && (
-                  <p className="mt-1 text-xs text-red-600">{inviteError[instance.id]}</p>
-                )}
               </>
             )}
           </li>

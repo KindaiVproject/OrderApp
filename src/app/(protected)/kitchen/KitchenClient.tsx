@@ -10,6 +10,8 @@ import CompleteOrderModal from "@/components/CompleteOrderModal";
 import ConfirmModal from "@/components/ConfirmModal";
 
 const POLL_INTERVAL_MS = 2500;
+// Waiting orders at or above this count turn the counter red.
+const WAITING_ALERT_COUNT = 5;
 
 export default function KitchenClient({
   initialOrders,
@@ -59,6 +61,14 @@ export default function KitchenClient({
     return Array.from(counts.entries());
   }, [orders]);
 
+  // Quiet when nothing is waiting, then amber, then red as the queue backs up.
+  const waitingTone =
+    orders.length === 0
+      ? "border-neutral-200 bg-white text-neutral-400"
+      : orders.length < WAITING_ALERT_COUNT
+        ? "border-amber-300 bg-amber-100 text-amber-800"
+        : "border-red-300 bg-red-100 text-red-700";
+
   function toggleSelect(orderId: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -88,7 +98,14 @@ export default function KitchenClient({
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-base font-semibold text-neutral-800">厨房</h1>
-        <span className="text-sm text-neutral-500">待機中: {orders.length}件</span>
+        <div
+          aria-live="polite"
+          className={`flex items-baseline gap-1.5 rounded-xl border px-4 py-1.5 shadow-sm ${waitingTone}`}
+        >
+          <span className="text-xs font-semibold">待機中</span>
+          <span className="text-4xl font-bold leading-none tabular-nums">{orders.length}</span>
+          <span className="text-xs font-semibold">件</span>
+        </div>
       </div>
 
       {requiredCounts.length > 0 && (

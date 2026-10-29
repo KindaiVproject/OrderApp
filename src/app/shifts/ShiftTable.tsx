@@ -4,6 +4,7 @@ import { useState } from "react";
 import Avatar from "@/components/Avatar";
 import { formatJstDateKey, formatJstTime } from "@/lib/datetime";
 import { timeToMinutes } from "@/lib/shifts";
+import type { ShiftFormInitial } from "./ShiftFormModal";
 import { dateLabel, roleColor, type ShiftItem } from "./shiftTypes";
 
 const HOUR_PX = 72;
@@ -48,7 +49,17 @@ function assignLanes(bars: Bar[]) {
 // シフト表: one day at a time with a time axis across. Rows are roles by
 // default (who covers 調理 / レジ when), or people (what each person does
 // when). Scrolls sideways on phones.
-export default function ShiftTable({ items, roleOrder }: { items: ShiftItem[]; roleOrder: string[] }) {
+export default function ShiftTable({
+  items,
+  roleOrder,
+  onAdd,
+}: {
+  items: ShiftItem[];
+  roleOrder: string[];
+  // Admin only. In the by-role view a "+" or a tap on an empty stretch of a
+  // role's row starts a new shift for that role (and time) on the shown day.
+  onAdd?: (initial: ShiftFormInitial) => void;
+}) {
   const dates = [...new Set(items.map((i) => formatJstDateKey(new Date(i.shift.startsAt))))].sort();
   const [picked, setPicked] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("role");
@@ -105,6 +116,21 @@ export default function ShiftTable({ items, roleOrder }: { items: ShiftItem[]; r
         color: roleColor(a.role),
         mine: a.isMe,
       });
+    }
+  }
+
+  if (onAdd && mode === "role") {
+    for (const name of roleOrder) {
+      if (!rowMap.has(name)) {
+        rowMap.set(name, {
+          key: name,
+          sortText: name,
+          label: (
+            <span className={`truncate rounded px-1.5 py-0.5 text-xs font-semibold ${roleColor(name)}`}>{name}</span>
+          ),
+          bars: [],
+        });
+      }
     }
   }
 
@@ -187,9 +213,28 @@ export default function ShiftTable({ items, roleOrder }: { items: ShiftItem[]; r
                   style={{ width: LABEL_PX }}
                 >
                   {row.label}
+                  {onAdd && mode === "role" && (
+                    <button
+                      type="button"
+                      onClick={() => onAdd({ date, start: "", end: "", rows: [{ memberId: "", role: row.key }] })}
+                      aria-label={`${row.key}のシフトを追加`}
+                      className="ml-auto shrink-0 rounded border border-neutral-300 px-1.5 text-xs leading-5 text-neutral-600 hover:bg-neutral-100"
+                    >
+                      ＋
+                    </button>
+                  )}
                 </div>
                 <div
-                  className="relative flex-1"
+                  className={`relative flex-1 ${onAdd && mode === "role" ? "cursor-copy" : ""}`}
+                  onClick={(e) => {
+                    // Only a tap on the empty track (not on a bar) adds a shift,
+                    // starting at the tapped time rounded down to 15 minutes.
+                    if (!onAdd || mode !== "role" || e.target !== e.currentTarget) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const minutes = axisStart + ((e.clientX - rect.left) / rect.width) * span;
+                    const start = Math.max(0, Math.min(23 * 60 + 45, Math.floor(minutes / 15) * 15));
+                    onAdd({ date, start: hhmm(start), end: "", rows: [{ memberId: "", role: row.key }] });
+                  }}
                   style={{
                     height: lanes * LANE_PX,
                     backgroundImage: "linear-gradient(to right, #e5e5e5 1px, transparent 1px)",
@@ -223,6 +268,11 @@ export default function ShiftTable({ items, roleOrder }: { items: ShiftItem[]; r
           {rows.length === 0 && <p className="p-3 text-xs text-neutral-400">この日は担当者が未設定です</p>}
         </div>
       </div>
+      {onAdd && mode === "role" && (
+        <p className="text-[11px] text-neutral-500">
+          役割の行の空いているところをタップするとその時間から、「＋」ではその役割で、シフトを追加できます。
+        </p>
+      )}
     </div>
   );
 }

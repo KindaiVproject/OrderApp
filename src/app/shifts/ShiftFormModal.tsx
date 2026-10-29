@@ -36,7 +36,8 @@ export default function ShiftFormModal({
 }) {
   const [date, setDate] = useState(initial.date);
   const [start, setStart] = useState(initial.start);
-  const [end, setEnd] = useState(initial.end);
+  // A start with no end (e.g. from a tap on the schedule) defaults to +1 hour.
+  const [end, setEnd] = useState(initial.end || (initial.start ? addMinutesToTime(initial.start, 60) : ""));
   const [endTouched, setEndTouched] = useState(Boolean(initial.end));
   const [rows, setRows] = useState<FormRow[]>(initial.rows.length > 0 ? initial.rows : [{ memberId: "", role: "" }]);
   const [saving, setSaving] = useState(false);

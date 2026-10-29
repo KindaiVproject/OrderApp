@@ -203,7 +203,11 @@ export default function ShiftsClient({
       </div>
 
       {mode === "table" ? (
-        <ShiftTable items={items} roleOrder={roles.map((r) => r.name)} />
+        <ShiftTable
+          items={items}
+          roleOrder={roles.map((r) => r.name)}
+          onAdd={isAdmin ? (initial) => setForm({ shiftId: null, initial }) : undefined}
+        />
       ) : (
         <>
           {[...groups.entries()].map(([dateKey, list]) => (

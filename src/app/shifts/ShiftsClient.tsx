@@ -88,7 +88,14 @@ export default function ShiftsClient({
 
   // New shifts start on today (JST), per the server's clock.
   const emptyInitial: ShiftFormInitial = { date: formatJstDateKey(new Date(nowMs)), start: "", end: "", rows: [] };
-  const rowsOf = (s: ShiftView) => s.assignments.map((a) => ({ memberId: a.memberId, role: a.role }));
+  // The shift as the form shows it (date, times and the full roster).
+  const initialOf = (s: ShiftView): ShiftFormInitial => ({
+    date: dateOf(s),
+    start: formatJstTime(new Date(s.startsAt)),
+    end: formatJstTime(new Date(s.endsAt)),
+    rows: s.assignments.map((a) => ({ memberId: a.memberId, role: a.role })),
+  });
+  const openEdit = (s: ShiftView) => setForm({ shiftId: s.id, initial: initialOf(s) });
 
   return (
     // The schedule table gets a much wider parent (the list stays narrow).
@@ -208,6 +215,14 @@ export default function ShiftsClient({
           items={items}
           roleOrder={roles.map((r) => r.name)}
           onAdd={isAdmin ? (initial) => setForm({ shiftId: null, initial }) : undefined}
+          onEdit={
+            isAdmin
+              ? (shiftId) => {
+                  const shift = shifts.find((s) => s.id === shiftId);
+                  if (shift) openEdit(shift);
+                }
+              : undefined
+          }
         />
       ) : (
         <>
@@ -237,34 +252,14 @@ export default function ShiftsClient({
                         <span className="flex items-center gap-3 text-xs">
                           <button
                             type="button"
-                            onClick={() =>
-                              setForm({
-                                shiftId: null,
-                                initial: {
-                                  date: dateOf(shift),
-                                  start: formatJstTime(new Date(shift.startsAt)),
-                                  end: formatJstTime(new Date(shift.endsAt)),
-                                  rows: rowsOf(shift),
-                                },
-                              })
-                            }
+                            onClick={() => setForm({ shiftId: null, initial: initialOf(shift) })}
                             className="text-neutral-600 hover:underline"
                           >
                             同じ時間で追加
                           </button>
                           <button
                             type="button"
-                            onClick={() =>
-                              setForm({
-                                shiftId: shift.id,
-                                initial: {
-                                  date: dateOf(shift),
-                                  start: formatJstTime(new Date(shift.startsAt)),
-                                  end: formatJstTime(new Date(shift.endsAt)),
-                                  rows: rowsOf(shift),
-                                },
-                              })
-                            }
+                            onClick={() => openEdit(shift)}
                             className="text-blue-600 hover:underline"
                           >
                             編集

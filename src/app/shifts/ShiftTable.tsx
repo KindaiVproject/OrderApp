@@ -19,6 +19,7 @@ const MIN_BAR_PX = 84;
 const MIN_BAR_MINUTES = Math.ceil((MIN_BAR_PX / HOUR_PX) * 60);
 
 type Bar = {
+  shiftId: string;
   title: string;
   text: string;
   start: number;
@@ -61,12 +62,15 @@ export default function ShiftTable({
   items,
   roleOrder,
   onAdd,
+  onEdit,
 }: {
   items: ShiftItem[];
   roleOrder: string[];
   // Admin only. In the by-role view a "+" or a tap on an empty stretch of a
   // role's row starts a new shift for that role (and time) on the shown day.
   onAdd?: (initial: ShiftFormInitial) => void;
+  // Admin only: tapping a bar edits that bar's shift (in either view).
+  onEdit?: (shiftId: string) => void;
 }) {
   const dates = [...new Set(items.map((i) => formatJstDateKey(new Date(i.shift.startsAt))))].sort();
   const [picked, setPicked] = useState<string | null>(null);
@@ -117,6 +121,7 @@ export default function ShiftTable({
         rowMap.set(key, row);
       }
       row.bars.push({
+        shiftId: shift.id,
         title: `${a.name}${a.unapproved ? "(未承認ユーザー)" : ""} ${a.role} ${range}`,
         text: mode === "role" ? a.name : a.role,
         start,
@@ -254,7 +259,20 @@ export default function ShiftTable({
                     <div
                       key={i}
                       title={bar.title}
-                      className={`absolute flex flex-col justify-center overflow-hidden rounded-md border px-2 py-1 leading-snug ${bar.color} ${bar.border} ${
+                      {...(onEdit
+                        ? {
+                            role: "button",
+                            tabIndex: 0,
+                            onClick: () => onEdit(bar.shiftId),
+                            onKeyDown: (e: React.KeyboardEvent) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                onEdit(bar.shiftId);
+                              }
+                            },
+                          }
+                        : {})}
+                      className={`absolute ${onEdit ? "cursor-pointer hover:brightness-95" : ""} flex flex-col justify-center overflow-hidden rounded-md border px-2 py-1 leading-snug ${bar.color} ${bar.border} ${
                         bar.mine ? "ring-2 ring-blue-400" : ""
                       }`}
                       style={{
@@ -278,9 +296,10 @@ export default function ShiftTable({
           {rows.length === 0 && <p className="p-3 text-xs text-neutral-400">この日は担当者が未設定です</p>}
         </div>
       </div>
-      {onAdd && mode === "role" && (
-        <p className="text-[11px] text-neutral-500">
-          役割の行の空いているところをタップするとその時間から、「＋」ではその役割で、シフトを追加できます。
+      {onEdit && (
+        <p className="text-[11px] leading-relaxed text-neutral-500">
+          バーをタップするとそのシフトを編集できます。
+          {onAdd && mode === "role" && "役割の行の空いているところをタップするとその時間から、「＋」ではその役割で、シフトを追加できます。"}
         </p>
       )}
     </div>

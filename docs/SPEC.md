@@ -133,7 +133,7 @@
 
 ## 6. 管理画面(`/admin`)
 
-- **インスタンス**: 作成(名前・ラベル)、稼働/停止の切替、複製、削除。
+- **インスタンス**: 作成(名前・ラベル)、稼働/停止の切替、複製、削除。**復帰予約**: 停止中のインスタンスの行に「復帰予約」欄が出て、日時(日本時間)を指定して「予約する」と、その時刻を過ぎた最初の定期ジョブ(毎分)で自動的に稼働に戻る(誤差は1分程度)。予約中は日時と「予約を取り消す」を表示。手動で稼働に切り替えると予約は消える。稼働中のインスタンスには予約できない・過去の日時は不可。停止の予約(指定時刻に止める)は未実装。
   - ラベルはヘッダーに表示される短い名前(例: `vpro`)。空ならインスタンス名を表示。
   - **複製**: 有効な商品とメンバー(メールアドレスのみ)をコピー。注文履歴・編集履歴・インスタンス管理者フラグ・表示名はコピーしない。
   - **削除**: 商品・注文・メンバー・編集履歴を**すべて完全削除**(元に戻せない)。インスタンス名の入力による確認が必要。
@@ -175,11 +175,11 @@
 | `User` / `Account` / `Session` / `VerificationToken` | Auth.js 標準 | DBセッション。追加列: `displayName`(本人が設定する表示名)、`shiftReminder30`(30分前通知、既定 true) |
 | `PushSubscription` | userId, endpoint(unique), p256dh, auth | 通知をオンにしたブラウザ/端末ごとの Web Push 購読情報。通知を切る・送信先が失効(404/410)したら削除 |
 | `ShiftRole` | instanceId, name, sortOrder, color? | シフトで選べる役割の候補。`(instanceId, name)` が unique。インスタンス削除でカスケード削除 |
-| `JobRun` | name(PK), ranAt, checked, sent | 外部cronの最終実行の記録(heartbeat)。`/admin` の「シフト通知ジョブの状態」に表示 |
+| `JobRun` | name(PK), ranAt, checked, sent | 外部cronの最終実行の記録(heartbeat)。`/admin` の「定期ジョブの状態(シフト通知・復帰予約)」に表示 |
 | `Shift` | instanceId, startsAt, endsAt | 時間帯(UTC保存、表示はJST、分単位)。インスタンス削除でカスケード削除 |
 | `ShiftAssignment` | shiftId, memberId, role, beforeNotifiedAt?, startNotifiedAt? | シフト×担当者×役割(役割は自由入力、20文字以内)。`*NotifiedAt` は通知送信済みの印で二重送信防止 |
 | `AdminInvite` | email(unique) | Admin 追加用 |
-| `Instance` | name, label, active, createdAt | 削除すると配下をカスケード削除 |
+| `Instance` | name, label, active, reactivateAt?, createdAt | 削除すると配下をカスケード削除 |
 | `InstanceMember` | instanceId, email, userId?, isInstanceAdmin, displayName? | `(instanceId, email)` が unique。招待はメールで照合し、初回ログイン時に `userId` を紐付け(`src/auth.ts` の `signIn` イベント) |
 | `Product` | name, price, imageUrl?, sortOrder, active | 論理削除 |
 | `Order` | customerNote?, paymentMethod, status, createdAt, completedAt? | |
@@ -220,7 +220,7 @@
 | POST | `/api/products/upload` | メンバー | 画像アップロード(multipart、5MB以下) |
 | POST | `/api/instances/select` | ログイン済 | 現在のインスタンスをCookieに設定 |
 | POST | `/api/admin/instances` | Admin | インスタンス作成 |
-| PATCH / DELETE | `/api/admin/instances/[id]` | Admin | 名前・ラベル・稼働状態の更新 / 削除 |
+| PATCH / DELETE | `/api/admin/instances/[id]` | Admin | 名前・ラベル・稼働状態・**復帰予約**(`reactivateAt`: `YYYY-MM-DDTHH:MM`(日本時間)または `null` で取消。停止中のみ・未来の日時のみ。`active: true` にすると予約は消える)の更新 / 削除 |
 | POST | `/api/admin/instances/[id]/duplicate` | Admin | 複製 |
 | POST | `/api/admin/instances/[id]/members` | Admin / そのインスタンスのインスタンス管理者 | メンバー招待(1リクエスト1アドレス。複数はクライアントが並列送信) |
 | PATCH | `/api/admin/instances/[id]/members/[memberId]` | Admin / そのインスタンスのインスタンス管理者 | 権限の更新(表示名の更新は Admin のみ。インスタンス管理者は自分の権限を外せない) |
@@ -238,7 +238,7 @@
 | PATCH | `/api/account` | ログイン済 | 自分の表示名と `shiftReminder30` の更新 |
 | POST / DELETE | `/api/push/subscribe` | ログイン済 | この端末の通知購読の登録 / 解除 |
 | POST | `/api/push/test` | ログイン済 | 自分の端末へテスト通知 |
-| GET | `/api/cron/shift-notify` | `Authorization: Bearer $CRON_SECRET` | 通知の送信(外部cronが毎分呼ぶ。下記) |
+| GET | `/api/cron/shift-notify` | `Authorization: Bearer $CRON_SECRET` | 定期ジョブ(外部cronが毎分呼ぶ。下記): ①**復帰予約の時刻を過ぎた停止中のインスタンスを稼働に戻す**(Push設定の有無に関係なく実行。結果の `resumed` に件数) ②シフト通知の送信 |
 | GET / POST | `/api/auth/[...nextauth]` | - | Auth.js |
 
 ## 12. 環境変数
@@ -258,7 +258,9 @@
 | `VAPID_SUBJECT` | Web Push の連絡先(`mailto:` かURL)。省略可 |
 | `CRON_SECRET` | `/api/cron/shift-notify` を呼ぶ側と共有する合言葉(推測されにくい長いランダム文字列) |
 
-### 12.1 シフト通知の仕組みと外部cronの設定
+### 12.1 定期ジョブ(シフト通知・インスタンスの復帰予約)の仕組みと外部cronの設定
+
+**同じ毎分の呼び出し1本**で、インスタンスの復帰予約(`Instance.reactivateAt` を過ぎた停止中のインスタンスを稼働に戻す)も処理する。復帰予約を使うには、cron-job.org のジョブが動いていること(`/admin` の「定期ジョブの状態」が正常)が前提。
 
 - 通知は **Web Push**(ブラウザ標準、Service Worker `public/sw.js`)。アカウント設定で「通知をオンにする」→ ブラウザの許可 → 購読情報を `PushSubscription` に保存。
 - 送信タイミングは `GET /api/cron/shift-notify` が決める: 開始の30分前〜開始(ユーザーが「30分前にも通知する」をオンにしている場合のみ)と、開始〜開始15分後(常に。それより遅れた分は送らない)。担当(`ShiftAssignment`)ごとに1回だけ。担当者がまだ一度もログインしていない(`userId` なし)場合は送らない。
@@ -266,7 +268,7 @@
   - URL: `https://<本番ドメイン>/api/cron/shift-notify`、メソッド GET
   - ヘッダー: `Authorization: Bearer <CRON_SECRET と同じ値>`
   - 成功時は `{"checked":N,"sent":M}` を返す。設定不足は 401(合言葉違い)/ 503(VAPID 未設定)。
-- **状態の確認**: `/admin` の「シフト通知ジョブの状態」に、cron の最終実行(何分前か)と直近の対象/送信件数が出る。「一度も実行されていません」「N分前(止まっている可能性)」なら、外部cron側(下の確認順②④)の問題。送信に失敗(一時的なエラー)した場合は、通知の窓が閉じるまで毎分再試行する。Web Push は `urgency: high` で送る。
+- **状態の確認**: `/admin` の「定期ジョブの状態(シフト通知・復帰予約)」に、cron の最終実行(何分前か)と直近の対象/送信件数が出る。「一度も実行されていません」「N分前(止まっている可能性)」なら、外部cron側(下の確認順②④)の問題。送信に失敗(一時的なエラー)した場合は、通知の窓が閉じるまで毎分再試行する。Web Push は `urgency: high` で送る。
 - 通知が届かないときの確認順: ①アカウント設定が「この端末で通知オン」か(テスト通知で確認) ②cron-job.org の実行履歴が毎分成功しているか ③Vercel の環境変数 ④Vercel の Deployment Protection で `/api/cron/...` が弾かれていないか(弾かれると 401 の HTML が返る)。
 - iPhone / iPad は iOS 16.4 以降で、**ホーム画面に追加したアプリ**として開いた場合のみ Web Push が使える。Android(Chrome)は通常のブラウザでも可。
 

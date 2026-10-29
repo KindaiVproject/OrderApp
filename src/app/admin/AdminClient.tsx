@@ -6,6 +6,7 @@ import type { InstanceModel, AdminInviteModel } from "@generated/prisma/models";
 import ConfirmModal from "@/components/ConfirmModal";
 import { parseEmailList } from "@/lib/emails";
 import Avatar from "@/components/Avatar";
+import { formatJstDateKey, formatJstTime } from "@/lib/datetime";
 import { JOB_STALE_MINUTES } from "@/lib/jobs";
 import { memberDisplayName, resolveName, type MemberWithUser } from "@/lib/memberName";
 
@@ -113,7 +114,9 @@ export default function AdminClient({
     });
     const data = await res.json();
     if (res.ok) {
-      setInstances((prev) => prev.map((i) => (i.id === instance.id ? { ...i, active: data.active } : i)));
+      setInstances((prev) =>
+        prev.map((i) => (i.id === instance.id ? { ...i, active: data.active, reactivateAt: data.reactivateAt ? new Date(data.reactivateAt) : null } : i)),
+      );
     }
   }
 
@@ -295,6 +298,16 @@ export default function AdminClient({
                 </button>
               </div>
             </div>
+
+            {!instance.active && (
+              <ReactivateSchedule
+                instanceId={instance.id}
+                reactivateAt={instance.reactivateAt}
+                onChanged={(reactivateAt) =>
+                  setInstances((prev) => prev.map((i) => (i.id === instance.id ? { ...i, reactivateAt } : i)))
+                }
+              />
+            )}
 
             <button
               type="button"
@@ -613,8 +626,88 @@ function NotifyJobCard({ job }: { job: NotifyJobStatus }) {
   }
   return (
     <div className="flex flex-col gap-1.5">
-      <h2 className="text-base font-semibold text-neutral-800">シフト通知ジョブの状態</h2>
+      <h2 className="text-base font-semibold text-neutral-800">定期ジョブの状態(シフト通知・復帰予約)</h2>
       <p className={`rounded-lg border p-3 text-xs leading-relaxed ${tone}`}>{text}</p>
+    </div>
+  );
+}
+
+// "When should this stopped instance switch back on by itself?" The external
+// per-minute cron does the switching, so it happens within about a minute of
+// the chosen time (Japan time).
+function ReactivateSchedule({
+  instanceId,
+  reactivateAt,
+  onChanged,
+}: {
+  instanceId: string;
+  reactivateAt: Date | null;
+  onChanged: (reactivateAt: Date | null) => void;
+}) {
+  const [value, setValue] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save(next: string | null) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/instances/${instanceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reactivateAt: next }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "保存に失敗しました");
+        return;
+      }
+      onChanged(data.reactivateAt ? new Date(data.reactivateAt) : null);
+      setValue("");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const at = reactivateAt;
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-neutral-50 p-2 text-xs text-neutral-600">
+      <span className="font-medium">復帰予約</span>
+      {at ? (
+        <>
+          <span className="text-neutral-800">
+            {formatJstDateKey(at).replace(/^\d+-0?(\d+)-0?(\d+)$/, "$1/$2")} {formatJstTime(at)}(日本時間)に自動で稼働に戻ります
+          </span>
+          <button
+            type="button"
+            onClick={() => save(null)}
+            disabled={busy}
+            className="rounded border border-neutral-300 px-2 py-0.5 text-neutral-700 hover:bg-white disabled:opacity-50"
+          >
+            予約を取り消す
+          </button>
+        </>
+      ) : (
+        <>
+          <input
+            type="datetime-local"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            aria-label="復帰する日時(日本時間)"
+            className="rounded border border-neutral-300 bg-white px-2 py-1"
+          />
+          <button
+            type="button"
+            onClick={() => save(value)}
+            disabled={busy || !value}
+            className="rounded bg-neutral-900 px-2 py-1 font-medium text-white disabled:opacity-40"
+          >
+            予約する
+          </button>
+          <span className="text-[11px] text-neutral-400">日本時間・1分程度の誤差があります</span>
+        </>
+      )}
+      {error && <span className="w-full text-red-600">{error}</span>}
     </div>
   );
 }

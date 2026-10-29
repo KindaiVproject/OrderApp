@@ -94,13 +94,16 @@ model AdminInvite {
 }
 
 model Instance {
-  id        String   @id @default(uuid())
-  name      String
+  id           String    @id @default(uuid())
+  name         String
   // Shown in the header (e.g. "vpro"). Empty string for the default instance.
-  label     String   @default("")
+  label        String    @default("")
   // 稼働/停止. Members can only sign in to / operate an active instance.
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  active       Boolean   @default(true)
+  // While stopped: when to switch back to active automatically (UTC). The
+  // external per-minute cron (/api/cron/shift-notify) does the switching.
+  reactivateAt DateTime?
+  createdAt    DateTime  @default(now())
 
   members    InstanceMember[]
   products   Product[]

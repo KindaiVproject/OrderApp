@@ -20,13 +20,24 @@ function authorized(request: Request) {
 }
 
 // Called every minute by an external scheduler (cron-job.org; Vercel Hobby
-// cron is daily only). Sends the 30-minutes-before reminder (if the user kept
+// cron is daily only). Besides shift notifications it also resumes instances
+// whose scheduled reactivation time has passed. Sends the 30-minutes-before reminder (if the user kept
 // it on) and the start-time notice, each at most once per assignment.
 export async function GET(request: Request) {
   if (!authorized(request)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if (!isPushConfigured()) return NextResponse.json({ error: "push not configured" }, { status: 503 });
 
   const now = new Date();
+  // Scheduled resume: stopped instances whose reactivation time has come go
+  // back to active. Independent of push, so it runs even when push isn't set up.
+  const resumed = await prisma.instance.updateMany({
+    where: { active: false, reactivateAt: { lte: now } },
+    data: { active: true, reactivateAt: null },
+  });
+
+  if (!isPushConfigured()) {
+    return NextResponse.json({ error: "push not configured", resumed: resumed.count }, { status: 503 });
+  }
+
   const assignments = await prisma.shiftAssignment.findMany({
     where: {
       shift: {
@@ -87,5 +98,5 @@ export async function GET(request: Request) {
     create: { name: SHIFT_NOTIFY_JOB, ranAt: now, checked: assignments.length, sent },
   });
 
-  return NextResponse.json({ checked: assignments.length, sent });
+  return NextResponse.json({ checked: assignments.length, sent, resumed: resumed.count });
 }

@@ -53,3 +53,11 @@ export function getJstHour(date: Date): number {
 export function currentTimeMs(): number {
   return Date.now();
 }
+
+// The next full hour in JST (03:18 -> 04:00). JST is a whole-hour offset from
+// UTC, so UTC hour boundaries are JST hour boundaries; past 23:xx it rolls to
+// 00:00 of the next day.
+export function nextFullHourJst(nowMs: number): { date: string; time: string } {
+  const boundary = new Date((Math.floor(nowMs / 3_600_000) + 1) * 3_600_000);
+  return { date: formatJstDateKey(boundary), time: formatJstTime(boundary) };
+}

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Avatar from "@/components/Avatar";
 import ConfirmModal from "@/components/ConfirmModal";
-import { formatJstDateKey, formatJstTime } from "@/lib/datetime";
+import { formatJstDateKey, formatJstTime, nextFullHourJst } from "@/lib/datetime";
 import MemberPicker from "./MemberPicker";
 import RolesModal from "./RolesModal";
 import ShiftFormModal, { type ShiftFormInitial } from "./ShiftFormModal";
@@ -88,8 +88,12 @@ export default function ShiftsClient({
     groups.set(key, [...(groups.get(key) ?? []), item]);
   }
 
-  // New shifts start on today (JST), per the server's clock.
-  const emptyInitial: ShiftFormInitial = { date: formatJstDateKey(new Date(nowMs)), start: "", end: "", rows: [] };
+  // A new shift defaults to the next full hour (now 03:18 -> 04:00, one hour
+  // long). Read at click time so a page left open still gets the right hour.
+  const newShiftInitial = (): ShiftFormInitial => {
+    const next = nextFullHourJst(Date.now());
+    return { date: next.date, start: next.time, end: "", rows: [] };
+  };
   // The shift as the form shows it (date, times and the full roster).
   const initialOf = (s: ShiftView): ShiftFormInitial => ({
     date: dateOf(s),
@@ -120,7 +124,7 @@ export default function ShiftsClient({
             </button>
             <button
               type="button"
-              onClick={() => setForm({ shiftId: null, initial: emptyInitial })}
+              onClick={() => setForm({ shiftId: null, initial: newShiftInitial() })}
               className="rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white"
             >
               シフトを追加
@@ -222,7 +226,16 @@ export default function ShiftsClient({
           items={items}
           roleOrder={roles.map((r) => r.name)}
           title={instanceName}
-          onAdd={isAdmin ? (initial) => setForm({ shiftId: null, initial }) : undefined}
+          // The table's "+" has no time of its own: it gets the next full hour.
+          onAdd={
+            isAdmin
+              ? (initial) =>
+                  setForm({
+                    shiftId: null,
+                    initial: initial.start ? initial : { ...initial, start: newShiftInitial().start },
+                  })
+              : undefined
+          }
           onEdit={
             isAdmin
               ? (shiftId) => {

@@ -102,11 +102,26 @@ model Instance {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  members  InstanceMember[]
-  products Product[]
-  orders   Order[]
-  editLogs EditLog[]
-  shifts   Shift[]
+  members    InstanceMember[]
+  products   Product[]
+  orders     Order[]
+  editLogs   EditLog[]
+  shifts     Shift[]
+  shiftRoles ShiftRole[]
+}
+
+// Roles an Admin pre-registers per instance; the shift form picks from these.
+// ShiftAssignment.role stores the name as plain text, so deleting a role here
+// never rewrites existing shifts.
+model ShiftRole {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  name       String
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@unique([instanceId, name])
 }
 
 // A time slot (minute precision, stored in UTC; shown in JST). Only global

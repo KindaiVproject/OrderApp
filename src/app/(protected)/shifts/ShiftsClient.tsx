@@ -5,147 +5,318 @@ import { useState } from "react";
 import Avatar from "@/components/Avatar";
 import ConfirmModal from "@/components/ConfirmModal";
 import { formatJstDateKey, formatJstTime } from "@/lib/datetime";
+import RolesModal from "./RolesModal";
+import ShiftFormModal, { type ShiftFormInitial } from "./ShiftFormModal";
+import ShiftTable from "./ShiftTable";
+import {
+  dateLabel,
+  nextDateKey,
+  roleColor,
+  type MemberOption,
+  type RoleOption,
+  type ShiftItem,
+  type ShiftView,
+} from "./shiftTypes";
 
-type MemberOption = { id: string; name: string };
-type ShiftView = {
-  id: string;
-  startsAt: string;
-  endsAt: string;
-  assignments: { memberId: string; role: string; name: string; image: string | null; isMe: boolean }[];
-};
-type Row = { memberId: string; role: string };
+type Form = { shiftId: string | null; initial: ShiftFormInitial };
 
-const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
-
-function dateLabel(dateKey: string) {
-  const [y, m, d] = dateKey.split("-").map(Number);
-  const weekday = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
-  return `${m}/${d}(${weekday})`;
-}
+const timeRange = (s: ShiftView) =>
+  `${formatJstTime(new Date(s.startsAt))}〜${formatJstTime(new Date(s.endsAt))}`;
 
 export default function ShiftsClient({
   isAdmin,
   nowMs,
   members,
+  roles,
   shifts,
 }: {
   isAdmin: boolean;
   // Server render time, so "finished" shifts are decided without Date.now() here.
   nowMs: number;
   members: MemberOption[];
+  roles: RoleOption[];
   shifts: ShiftView[];
 }) {
   const router = useRouter();
+  const [mode, setMode] = useState<"list" | "table">("list");
   const [showPast, setShowPast] = useState(false);
-  // null = closed, "new" = adding, otherwise editing that shift.
-  const [editing, setEditing] = useState<ShiftView | "new" | null>(null);
+  const [myOnly, setMyOnly] = useState(false);
+  const [fMember, setFMember] = useState("");
+  const [fRole, setFRole] = useState("");
+  const [fDate, setFDate] = useState("");
+  const [form, setForm] = useState<Form | null>(null);
   const [deleting, setDeleting] = useState<ShiftView | null>(null);
+  const [managingRoles, setManagingRoles] = useState(false);
 
-  const now = nowMs;
-  const visible = shifts.filter((s) => showPast || new Date(s.endsAt).getTime() >= now);
-  const pastCount = shifts.length - shifts.filter((s) => new Date(s.endsAt).getTime() >= now).length;
+  const dateOf = (s: ShiftView) => formatJstDateKey(new Date(s.startsAt));
+  const pool = shifts.filter((s) => showPast || new Date(s.endsAt).getTime() >= nowMs);
+  const pastCount = shifts.filter((s) => new Date(s.endsAt).getTime() < nowMs).length;
 
-  const groups = new Map<string, ShiftView[]>();
-  for (const s of visible) {
-    const key = formatJstDateKey(new Date(s.startsAt));
-    groups.set(key, [...(groups.get(key) ?? []), s]);
+  // Filter choices come from what is actually on the board.
+  const memberChoices = new Map<string, string>();
+  const roleChoices = new Set<string>();
+  for (const s of pool) {
+    for (const a of s.assignments) {
+      memberChoices.set(a.memberId, a.name);
+      roleChoices.add(a.role);
+    }
   }
+  const dateChoices = [...new Set(pool.map(dateOf))].sort();
+
+  // Filters narrow the assignments; a shift drops out when an assignment
+  // filter is on and nothing is left. Edit/copy still use the full shift.
+  const assignmentFilterOn = myOnly || Boolean(fMember) || Boolean(fRole);
+  const items: ShiftItem[] = pool
+    .filter((s) => !fDate || dateOf(s) === fDate)
+    .map((shift) => ({
+      shift,
+      assignments: shift.assignments.filter(
+        (a) => (!myOnly || a.isMe) && (!fMember || a.memberId === fMember) && (!fRole || a.role === fRole),
+      ),
+    }))
+    .filter((i) => !assignmentFilterOn || i.assignments.length > 0);
+  const filtersOn = assignmentFilterOn || Boolean(fDate);
+
+  const groups = new Map<string, ShiftItem[]>();
+  for (const item of items) {
+    const key = dateOf(item.shift);
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  }
+
+  const emptyInitial: ShiftFormInitial = { date: "", start: "", end: "", rows: [] };
+  const rowsOf = (s: ShiftView) => s.assignments.map((a) => ({ memberId: a.memberId, role: a.role }));
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-base font-semibold text-neutral-800">シフト</h1>
-        <div className="flex items-center gap-3">
+        {isAdmin && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setManagingRoles(true)}
+              className="rounded border border-neutral-300 bg-white px-3 py-1.5 text-sm text-neutral-700"
+            >
+              役割を登録
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm({ shiftId: null, initial: emptyInitial })}
+              className="rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white"
+            >
+              シフトを追加
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex overflow-hidden rounded border border-neutral-300 text-xs font-medium">
+            {(["list", "table"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                className={`px-3 py-1.5 ${mode === m ? "bg-neutral-900 text-white" : "bg-white text-neutral-600"}`}
+              >
+                {m === "list" ? "リスト" : "シフト表"}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setMyOnly((v) => !v)}
+            aria-pressed={myOnly}
+            className={`rounded border px-3 py-1.5 text-xs font-medium ${
+              myOnly ? "border-blue-500 bg-blue-50 text-blue-700" : "border-neutral-300 bg-white text-neutral-600"
+            }`}
+          >
+            自分のシフトのみ
+          </button>
           {pastCount > 0 && (
             <button
               type="button"
               onClick={() => setShowPast((v) => !v)}
-              className="text-xs text-neutral-500 underline"
+              className="ml-auto text-xs text-neutral-500 underline"
             >
               {showPast ? "終了したシフトを隠す" : `終了したシフトも表示(${pastCount})`}
             </button>
           )}
-          {isAdmin && (
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <select
+            value={fDate}
+            onChange={(e) => setFDate(e.target.value)}
+            aria-label="日付で絞り込み"
+            className="rounded border border-neutral-300 px-2 py-1.5"
+          >
+            <option value="">すべての日</option>
+            {dateChoices.map((d) => (
+              <option key={d} value={d}>
+                {dateLabel(d)}
+              </option>
+            ))}
+          </select>
+          <select
+            value={fMember}
+            onChange={(e) => setFMember(e.target.value)}
+            aria-label="担当者で絞り込み"
+            className="rounded border border-neutral-300 px-2 py-1.5"
+          >
+            <option value="">全員</option>
+            {[...memberChoices.entries()].map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={fRole}
+            onChange={(e) => setFRole(e.target.value)}
+            aria-label="役割で絞り込み"
+            className="rounded border border-neutral-300 px-2 py-1.5"
+          >
+            <option value="">すべての役割</option>
+            {[...roleChoices].map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+          {filtersOn && (
             <button
               type="button"
-              onClick={() => setEditing("new")}
-              className="rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white"
+              onClick={() => {
+                setMyOnly(false);
+                setFMember("");
+                setFRole("");
+                setFDate("");
+              }}
+              className="text-neutral-500 underline"
             >
-              シフトを追加
+              絞り込みを解除
             </button>
           )}
         </div>
       </div>
 
-      {[...groups.entries()].map(([dateKey, list]) => (
-        <section key={dateKey} className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold text-neutral-700">{dateLabel(dateKey)}</h2>
-          {list.map((shift) => {
-            const ended = new Date(shift.endsAt).getTime() < now;
-            const mine = shift.assignments.some((a) => a.isMe);
-            return (
-              <div
-                key={shift.id}
-                className={`rounded-lg border bg-white p-3 shadow-sm ${
-                  mine ? "border-blue-300" : "border-neutral-200"
-                } ${ended ? "opacity-60" : ""}`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold tabular-nums text-neutral-800">
-                    {formatJstTime(new Date(shift.startsAt))}〜{formatJstTime(new Date(shift.endsAt))}
-                    {mine && (
-                      <span className="ml-2 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
-                        あなたのシフト
+      {mode === "table" ? (
+        <ShiftTable items={items} />
+      ) : (
+        <>
+          {[...groups.entries()].map(([dateKey, list]) => (
+            <section key={dateKey} className="flex flex-col gap-2">
+              <h2 className="text-sm font-semibold text-neutral-700">{dateLabel(dateKey)}</h2>
+              {list.map(({ shift, assignments }) => {
+                const ended = new Date(shift.endsAt).getTime() < nowMs;
+                const mine = shift.assignments.some((a) => a.isMe);
+                return (
+                  <div
+                    key={shift.id}
+                    className={`rounded-lg border bg-white p-3 shadow-sm ${
+                      mine ? "border-blue-300" : "border-neutral-200"
+                    } ${ended ? "opacity-60" : ""}`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-sm font-semibold tabular-nums text-neutral-800">
+                        {timeRange(shift)}
+                        {mine && (
+                          <span className="ml-2 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700">
+                            あなたのシフト
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                  {isAdmin && (
-                    <span className="flex items-center gap-3 text-xs">
-                      <button type="button" onClick={() => setEditing(shift)} className="text-blue-600 hover:underline">
-                        編集
-                      </button>
-                      <button type="button" onClick={() => setDeleting(shift)} className="text-red-600 hover:underline">
-                        削除
-                      </button>
-                    </span>
-                  )}
-                </div>
-                <ul className="mt-2 flex flex-col gap-1.5">
-                  {shift.assignments.map((a) => (
-                    <li key={`${a.memberId}-${a.role}`} className="flex items-center gap-2 text-sm">
-                      <Avatar name={a.name} image={a.image} size={24} />
-                      <span className={a.isMe ? "font-semibold text-neutral-900" : "text-neutral-700"}>{a.name}</span>
-                      <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600">{a.role}</span>
-                    </li>
-                  ))}
-                  {shift.assignments.length === 0 && (
-                    <li className="text-xs text-neutral-400">担当者が未設定です</li>
-                  )}
-                </ul>
-              </div>
-            );
-          })}
-        </section>
-      ))}
-      {groups.size === 0 && <p className="text-sm text-neutral-400">シフトはまだありません</p>}
+                      {isAdmin && (
+                        <span className="flex items-center gap-3 text-xs">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setForm({
+                                shiftId: null,
+                                initial: {
+                                  date: nextDateKey(dateOf(shift)),
+                                  start: formatJstTime(new Date(shift.startsAt)),
+                                  end: formatJstTime(new Date(shift.endsAt)),
+                                  rows: rowsOf(shift),
+                                },
+                              })
+                            }
+                            className="text-neutral-600 hover:underline"
+                          >
+                            同じ時間で追加
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setForm({
+                                shiftId: shift.id,
+                                initial: {
+                                  date: dateOf(shift),
+                                  start: formatJstTime(new Date(shift.startsAt)),
+                                  end: formatJstTime(new Date(shift.endsAt)),
+                                  rows: rowsOf(shift),
+                                },
+                              })
+                            }
+                            className="text-blue-600 hover:underline"
+                          >
+                            編集
+                          </button>
+                          <button type="button" onClick={() => setDeleting(shift)} className="text-red-600 hover:underline">
+                            削除
+                          </button>
+                        </span>
+                      )}
+                    </div>
+                    <ul className="mt-2 flex flex-col gap-1.5">
+                      {assignments.map((a) => (
+                        <li key={`${a.memberId}-${a.role}`} className="flex flex-wrap items-center gap-2 text-sm">
+                          <Avatar name={a.name} image={a.image} size={24} />
+                          <span className={a.isMe ? "font-semibold text-neutral-900" : "text-neutral-700"}>{a.name}</span>
+                          {a.unapproved && (
+                            <span className="rounded bg-amber-100 px-1 py-0.5 text-[9px] font-bold text-amber-700">
+                              未承認ユーザー
+                            </span>
+                          )}
+                          <span className={`rounded px-1.5 py-0.5 text-xs ${roleColor(a.role)}`}>{a.role}</span>
+                        </li>
+                      ))}
+                      {assignments.length === 0 && <li className="text-xs text-neutral-400">担当者が未設定です</li>}
+                    </ul>
+                  </div>
+                );
+              })}
+            </section>
+          ))}
+          {groups.size === 0 && (
+            <p className="text-sm text-neutral-400">
+              {filtersOn ? "条件に合うシフトがありません" : "シフトはまだありません"}
+            </p>
+          )}
+        </>
+      )}
 
-      {editing && (
+      {form && (
         <ShiftFormModal
-          shift={editing === "new" ? null : editing}
+          shiftId={form.shiftId}
+          initial={form.initial}
           members={members}
-          onClose={() => setEditing(null)}
+          roles={roles}
+          onClose={() => setForm(null)}
           onSaved={() => {
-            setEditing(null);
+            setForm(null);
             router.refresh();
           }}
         />
       )}
+      {managingRoles && (
+        <RolesModal roles={roles} onClose={() => setManagingRoles(false)} onChanged={() => router.refresh()} />
+      )}
       {deleting && (
         <ConfirmModal
           title="シフトを削除"
-          message={`${dateLabel(formatJstDateKey(new Date(deleting.startsAt)))} ${formatJstTime(
-            new Date(deleting.startsAt),
-          )}〜${formatJstTime(new Date(deleting.endsAt))} のシフトを削除しますか？`}
+          message={`${dateLabel(dateOf(deleting))} ${timeRange(deleting)} のシフトを削除しますか？`}
           onClose={() => setDeleting(null)}
           onConfirm={async () => {
             const res = await fetch(`/api/shifts/${deleting.id}`, { method: "DELETE" });
@@ -158,155 +329,6 @@ export default function ShiftsClient({
           }}
         />
       )}
-    </div>
-  );
-}
-
-function ShiftFormModal({
-  shift,
-  members,
-  onClose,
-  onSaved,
-}: {
-  shift: ShiftView | null;
-  members: MemberOption[];
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [date, setDate] = useState(shift ? formatJstDateKey(new Date(shift.startsAt)) : "");
-  const [start, setStart] = useState(shift ? formatJstTime(new Date(shift.startsAt)) : "");
-  const [end, setEnd] = useState(shift ? formatJstTime(new Date(shift.endsAt)) : "");
-  const [rows, setRows] = useState<Row[]>(
-    shift
-      ? shift.assignments.map((a) => ({ memberId: a.memberId, role: a.role }))
-      : [{ memberId: "", role: "" }],
-  );
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  function updateRow(index: number, patch: Partial<Row>) {
-    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)));
-  }
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(shift ? `/api/shifts/${shift.id}` : "/api/shifts", {
-        method: shift ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        // Rows left half-empty (no member) are dropped rather than rejected.
-        body: JSON.stringify({ date, start, end, assignments: rows.filter((r) => r.memberId) }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError(data.error ?? "保存に失敗しました");
-        return;
-      }
-      onSaved();
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
-      <form
-        onSubmit={save}
-        className="flex max-h-[90dvh] w-full max-w-md flex-col gap-3 overflow-y-auto rounded-t-xl bg-white p-4 shadow-xl sm:rounded-xl"
-      >
-        <h2 className="text-base font-semibold text-neutral-800">{shift ? "シフトを編集" : "シフトを追加"}</h2>
-
-        <label className="flex flex-col gap-1 text-xs text-neutral-600">
-          日付
-          <input
-            type="date"
-            required
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
-          />
-        </label>
-        <div className="flex gap-2">
-          <label className="flex flex-1 flex-col gap-1 text-xs text-neutral-600">
-            開始
-            <input
-              type="time"
-              required
-              value={start}
-              onChange={(e) => setStart(e.target.value)}
-              className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
-            />
-          </label>
-          <label className="flex flex-1 flex-col gap-1 text-xs text-neutral-600">
-            終了
-            <input
-              type="time"
-              required
-              value={end}
-              onChange={(e) => setEnd(e.target.value)}
-              className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
-            />
-          </label>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <span className="text-xs text-neutral-600">担当と役割</span>
-          {rows.map((row, i) => (
-            <div key={i} className="flex items-center gap-1.5">
-              <select
-                value={row.memberId}
-                onChange={(e) => updateRow(i, { memberId: e.target.value })}
-                className="min-w-0 flex-1 rounded border border-neutral-300 px-2 py-1.5 text-sm"
-              >
-                <option value="">担当者を選択</option>
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                value={row.role}
-                onChange={(e) => updateRow(i, { role: e.target.value })}
-                placeholder="役割(例: レジ)"
-                maxLength={20}
-                className="w-28 rounded border border-neutral-300 px-2 py-1.5 text-sm"
-              />
-              <button
-                type="button"
-                onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}
-                aria-label="この行を削除"
-                className="px-1 text-neutral-400 hover:text-red-600"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => setRows((prev) => [...prev, { memberId: "", role: "" }])}
-            className="self-start text-xs text-blue-600 hover:underline"
-          >
-            ＋ 担当を追加
-          </button>
-        </div>
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded px-3 py-1.5 text-sm text-neutral-600">
-            キャンセル
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
-          >
-            保存
-          </button>
-        </div>
-      </form>
     </div>
   );
 }

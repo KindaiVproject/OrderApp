@@ -24,9 +24,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if ("error" in authz) return authz.error;
   const { instance, email } = authz;
 
-  const existing = await prisma.shift.findFirst({ where: { id, instanceId: instance.id } });
+  const existing = await prisma.shift.findFirst({
+    where: { id, instanceId: instance.id },
+    include: { assignments: true },
+  });
   if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
 
+  const roles = await prisma.shiftRole.findMany({ where: { instanceId: instance.id } });
+  const allowedRoles = new Set([...roles.map((r) => r.name), ...existing.assignments.map((a) => a.role)]);
   const members = await prisma.instanceMember.findMany({
     where: { instanceId: instance.id },
     select: { id: true },
@@ -34,6 +39,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const parsed = parseShiftInput(
     await request.json().catch(() => null),
     new Set(members.map((m) => m.id)),
+    allowedRoles,
   );
   if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
   const { startsAt, endsAt, assignments } = parsed.input;

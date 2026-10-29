@@ -19,9 +19,11 @@ export async function POST(request: Request) {
     where: { instanceId: instance.id },
     select: { id: true },
   });
+  const roles = await prisma.shiftRole.findMany({ where: { instanceId: instance.id } });
   const parsed = parseShiftInput(
     await request.json().catch(() => null),
     new Set(members.map((m) => m.id)),
+    new Set(roles.map((r) => r.name)),
   );
   if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
   const { startsAt, endsAt, assignments } = parsed.input;

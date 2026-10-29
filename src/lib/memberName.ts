@@ -16,3 +16,20 @@ export function resolveName(
 export function memberDisplayName(member: MemberWithUser) {
   return resolveName(member.email, member.displayName, member.user);
 }
+
+// "abcdef@x.com" -> "a****f": only the part before "@", keeping the first and
+// last character. Shorter locals reveal at most one character.
+export function maskEmail(email: string): string {
+  const local = email.split("@")[0];
+  if (local.length <= 1) return "*";
+  if (local.length === 2) return `${local[0]}*`;
+  return `${local[0]}${"*".repeat(local.length - 2)}${local[local.length - 1]}`;
+}
+
+// Name shown on the shift screens. When nobody set a name (it would be the
+// raw email) viewers who can't manage members only get the masked address.
+export function shiftMemberName(member: MemberWithUser, canSeeAddresses: boolean): string {
+  const name = memberDisplayName(member);
+  if (name !== member.email || canSeeAddresses) return name;
+  return maskEmail(member.email);
+}

@@ -12,13 +12,13 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
-    "@prisma/adapter-pg": "^7.9.1",
-    "@prisma/client": "^7.9.1",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "@vercel/blob": "^2.7.0",
-    "next": "16.3.0",
+    "next": "16.4.3",
     "next-auth": "^5.0.0-beta.32",
     "pg": "^8.23.0",
-    "prisma": "^7.9.1",
+    "prisma": "^7.10.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "web-push": "^3.6.7"
@@ -31,12 +31,17 @@
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
     "eslint": "^9",
-    "eslint-config-next": "16.3.0",
+    "eslint-config-next": "16.4.3",
     "tailwindcss": "^4",
     "tsx": "^4.23.11",
     "typescript": "^5"
   },
   "engines": {
     "node": "22.x"
+  },
+  "overrides": {
+    "@vercel/cli-config": {
+      "zod": "4.6.7"
+    }
   }
 }

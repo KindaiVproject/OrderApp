@@ -22,6 +22,7 @@ const BASE_NAV_ITEMS = [
 const SECONDARY_LINKS: { href: string; label: string; requires?: "manage" | "admin" }[] = [
   { href: "/instances", label: "トップ" },
   { href: "/shifts/current", label: "シフト" },
+  { href: "/payment", label: "決済" },
   { href: "/members", label: "メンバー", requires: "manage" },
   { href: "/edit-log", label: "編集履歴", requires: "manage" },
   { href: "/admin", label: "Admin", requires: "admin" },

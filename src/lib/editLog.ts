@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 export const MEMBER_INVITE_SUFFIX = " を招待";
 export const MEMBER_ROLE_MARKER = " の権限: ";
 
-export type EditLogEntityType = "ORDER" | "PRODUCT" | "MEMBER" | "SHIFT";
+export type EditLogEntityType = "ORDER" | "PRODUCT" | "MEMBER" | "SHIFT" | "INSTANCE";
 export type EditLogAction = "CREATE" | "EDIT" | "CANCEL" | "COMPLETE" | "DELETE" | "INVITE";
 
 export async function logEdit(params: {

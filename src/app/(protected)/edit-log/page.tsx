@@ -11,6 +11,7 @@ const ENTITY_LABELS: Record<string, string> = {
   PRODUCT: "商品",
   MEMBER: "メンバー",
   SHIFT: "シフト",
+  INSTANCE: "設定",
 };
 
 const ACTION_LABELS: Record<string, string> = {

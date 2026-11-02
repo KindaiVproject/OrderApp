@@ -103,6 +103,9 @@ model Instance {
   // While stopped: when to switch back to active automatically (UTC). The
   // external per-minute cron (/api/cron/shift-notify) does the switching.
   reactivateAt DateTime?
+  // Payment links shown as QR codes on /payment ("" = not registered).
+  paypayUrl    String    @default("")
+  dPaymentUrl  String    @default("")
   createdAt    DateTime  @default(now())
 
   members    InstanceMember[]

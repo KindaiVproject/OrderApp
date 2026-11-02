@@ -50,6 +50,8 @@
 | メンバー管理(`/members`: 自インスタンスへの招待、インスタンス管理者権限の付与・剥奪) | × | ○(自インスタンスのみ。稼働中のみ) | ○(全インスタンス) |
 | **シフトの追加・編集・削除、役割の設定・並び替え・色、表のドラッグ変更**(`/shifts`) | × | ○(自インスタンスのみ。**停止中でも可**) | ○(全インスタンス) |
 | シフトの閲覧(全員) | ○ | ○ | ○ |
+| **決済リンク(PayPay / d払い)の登録・変更・削除**(`/payment`) | × | ○(自インスタンスのみ) | ○(現在のインスタンス) |
+| 決済QRの閲覧・拡大(`/payment`) | ○ | ○ | ○ |
 | `/admin`(インスタンス作成・削除・複製・停止、メンバー招待・権限変更、Admin招待) | × | × | ○ |
 
 - インスタンス管理者の付与・剥奪・メンバー招待は、Admin が `/admin` から、またはそのインスタンスのインスタンス管理者が `/members` から行える。インスタンス管理者は **自分自身の権限は外せない**(ロックアウト防止)。
@@ -117,6 +119,15 @@
 - 画像URLは「`/defaults/products/` 配下」または「Vercel Blob の公開URL」のみ許可(`isValidProductImagePath`)。外部URLは不可。
 - AIによる画像生成は検討の末 **見送り**(実装しない方針)。
 
+### 5.4.1 決済QR(`/payment`)
+
+ヘッダーの「決済」から開く、インスタンスごとの PayPay / d払い の決済リンクのQR表示画面。
+
+- **全メンバーが閲覧可**。QRをタップすると画面いっぱいに拡大(どこかをタップで閉じる)。未登録の方式は「まだ登録されていません」と表示。
+- **登録・変更・削除は Admin とそのインスタンスのインスタンス管理者のみ**(同画面の入力欄。一般メンバーには入力欄が出ない)。API でも同じ判定。
+- 入力できるのは `https://` で始まるリンク(500文字以内)のみ。QRはサーバー側で `qrcode` により生成した画像で、ブラウザ側にQRライブラリは持たない。
+- 登録・変更・削除は編集履歴(種別「設定」)に記録する(リンクそのものは履歴に残さない)。インスタンスを複製してもリンクは引き継がない。
+
 ### 5.5 注文明細のスナップショット
 
 `OrderItem` は注文時点の **商品名・画像URL・単価** を自前で保持する(商品マスタの後日変更・削除があっても履歴/CSV/統計が変わらないようにするため)。注文を編集して商品を差し替えた場合は、その時点の商品情報で再スナップショットされる。
@@ -180,14 +191,14 @@
 | `Shift` | instanceId, startsAt, endsAt | 時間帯(UTC保存、表示はJST、分単位)。インスタンス削除でカスケード削除 |
 | `ShiftAssignment` | shiftId, memberId, role, beforeNotifiedAt?, startNotifiedAt?, calendarAddedAt? | シフト×担当者×役割(役割は自由入力、20文字以内)。`*NotifiedAt` は通知送信済みの印で二重送信防止 |
 | `AdminInvite` | email(unique) | Admin 追加用 |
-| `Instance` | name, label, active, reactivateAt?, createdAt | 削除すると配下をカスケード削除 |
+| `Instance` | name, label, active, reactivateAt?, paypayUrl, dPaymentUrl, createdAt | 削除すると配下をカスケード削除。`paypayUrl` / `dPaymentUrl` は決済リンク(空文字=未登録)。**複製しても引き継がない**(入金先が変わらないよう、複製先では登録し直す) |
 | `InstanceMember` | instanceId, email, userId?, isInstanceAdmin, displayName? | `(instanceId, email)` が unique。招待はメールで照合し、初回ログイン時に `userId` を紐付け(`src/auth.ts` の `signIn` イベント) |
 | `Product` | name, price, imageUrl?, sortOrder, active | 論理削除 |
 | `Order` | customerNote?, paymentMethod, status, createdAt, completedAt? | |
 | `OrderItem` | productId?, productName, imageUrl?, unitPrice, quantity | スナップショット保持。商品削除時 `productId` は null に |
 | `EditLog` | instanceId, entityType(ORDER/PRODUCT/MEMBER), entityId, action(CREATE/EDIT/CANCEL/COMPLETE/DELETE/INVITE), summary, actorEmail, createdAt | `(instanceId, createdAt)` に index |
 
-マイグレーションは `prisma/migrations/`(init → 注文キャンセル+明細画像 → インスタンス管理者+編集履歴 → メンバー表示名 → ユーザー表示名 → シフトと Web Push → 役割マスタ → 役割の色)。
+マイグレーションは `prisma/migrations/`(init → 注文キャンセル+明細画像 → インスタンス管理者+編集履歴 → メンバー表示名 → ユーザー表示名 → シフトと Web Push → 役割マスタ → 役割の色 → 復帰予約 → カレンダー登録済み → 決済リンク)。
 
 ## 9. CSV出力(`GET /api/orders/export`)
 
@@ -238,6 +249,7 @@
 | DELETE | `/api/shifts/roles/[id]` | Admin | 役割の削除(設定済みシフトの役割は変わらない) |
 | PATCH / DELETE | `/api/shifts/[id]` | Admin | シフト編集(担当は丸ごと置換=通知の送信済み印もリセット)/ 削除 |
 | POST | `/api/calendar/export` | ログイン済 | 自分の今後のシフト(参加している全インスタンス、停止中も含む)の `.ics` を返し、書き出したシフトを「カレンダー登録済み」(`ShiftAssignment.calendarAddedAt`)にする。`scope`: `unregistered`(既定。未登録分のみ)/ `all`。`instanceId` を付けるとそのインスタンスの分だけ(インスタンス別画面用)。対象がなければ409。イベントのUIDは「シフト×本人」で固定(`shift-<シフトID>-<メンバーID>@orderapp`)なので再取り込みは更新になり、1シフトに複数の役割があれば1イベントに役割を並べる。状態を変えるためGETではなくPOST。`src/lib/ics.ts` が書き出し(75バイトで折り返し) |
+| PATCH | `/api/payment-links` | Admin / 現在のインスタンスのインスタンス管理者 | 決済リンクの登録・変更・削除(`kind`: `paypay` / `dpayment`、`url`: `https://` で始まる500文字以内、空文字で削除。編集履歴に「設定」として記録。リンク自体は履歴に残さない) |
 | PATCH | `/api/account` | ログイン済 | 自分の表示名と `shiftReminder30` の更新 |
 | POST / DELETE | `/api/push/subscribe` | ログイン済 | この端末の通知購読の登録 / 解除 |
 | POST | `/api/push/test` | ログイン済 | 自分の端末へテスト通知 |

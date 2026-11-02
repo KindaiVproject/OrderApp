@@ -36,6 +36,9 @@ export default async function InstancesPage() {
               インスタンス管理(Admin)
             </Link>
           )}
+          <Link href="/access-qr" className={LINK_CLASS}>
+            アプリを開くQRを表示
+          </Link>
           <Link href="/account" className={LINK_CLASS}>
             アカウント設定
           </Link>

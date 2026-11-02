@@ -41,6 +41,7 @@ export default function AdminClient({
   const [inviteError, setInviteError] = useState<Record<string, string | null>>({});
   const [deletingInstance, setDeletingInstance] = useState<InstanceWithMembers | null>(null);
   const [duplicatingInstance, setDuplicatingInstance] = useState<InstanceWithMembers | null>(null);
+  const [clearingInstance, setClearingInstance] = useState<InstanceWithMembers | null>(null);
   const [adminInvites, setAdminInvites] = useState(initialAdminInvites);
   const [newAdminEmail, setNewAdminEmail] = useState("");
   const [adminError, setAdminError] = useState<string | null>(null);
@@ -217,6 +218,10 @@ export default function AdminClient({
     setNewAdminEmail(failed.map((f) => f.email).join(", "));
     setAdminError(failed.length > 0 ? `招待に失敗: ${failed.map((f) => f.email).join(", ")}` : null);
   }
+
+  // Global Admins (always-Admin + invited). They are kept when regular members
+  // are cleared out of an instance.
+  const adminEmails = new Set([bootstrapAdminEmail, ...adminInvites.map((a) => a.email)].filter(Boolean));
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4">
@@ -421,6 +426,15 @@ export default function AdminClient({
                     <li className="text-xs text-neutral-400">メンバーがいません</li>
                   )}
                 </ul>
+                {instance.members.some((m) => !m.isInstanceAdmin && !adminEmails.has(m.email)) && (
+                  <button
+                    type="button"
+                    onClick={() => setClearingInstance(instance)}
+                    className="mt-3 rounded border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                  >
+                    管理者以外のメンバーを全員外す…
+                  </button>
+                )}
               </>
             )}
           </li>
@@ -495,6 +509,22 @@ export default function AdminClient({
             }
             setAdminInvites((prev) => prev.filter((a) => a.id !== removingAdmin.id));
             setRemovingAdmin(null);
+          }}
+        />
+      )}
+
+      {clearingInstance && (
+        <RemoveRegularMembersModal
+          instance={clearingInstance}
+          keepAdminEmails={adminEmails}
+          onClose={() => setClearingInstance(null)}
+          onRemoved={(instanceId, removedIds) => {
+            setInstances((prev) =>
+              prev.map((i) =>
+                i.id === instanceId ? { ...i, members: i.members.filter((m) => !removedIds.includes(m.id)) } : i,
+              ),
+            );
+            setClearingInstance(null);
           }}
         />
       )}
@@ -728,6 +758,102 @@ function AdminLabel({
         {name && <span className="truncate text-xs text-neutral-500">{email}</span>}
       </span>
     </span>
+  );
+}
+
+// Admin: kick every member who is not an Admin / instance admin out of one
+// instance. Shows exactly who goes and who stays, and needs the instance name.
+function RemoveRegularMembersModal({
+  instance,
+  keepAdminEmails,
+  onClose,
+  onRemoved,
+}: {
+  instance: InstanceWithMembers;
+  keepAdminEmails: Set<string>;
+  onClose: () => void;
+  onRemoved: (instanceId: string, removedIds: string[]) => void;
+}) {
+  const [typed, setTyped] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const going = instance.members.filter((m) => !m.isInstanceAdmin && !keepAdminEmails.has(m.email));
+  const staying = instance.members.length - going.length;
+  const matches = typed === instance.name;
+
+  async function remove() {
+    if (!matches || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/instances/${instance.id}/members/remove-regular`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmName: typed }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "外すのに失敗しました");
+      onRemoved(instance.id, data.removedIds ?? going.map((m) => m.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "外すのに失敗しました");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
+      <div className="flex max-h-[92dvh] w-full max-w-md flex-col gap-3 overflow-y-auto rounded-t-xl bg-white p-4 shadow-xl sm:rounded-xl">
+        <h2 className="text-sm font-semibold text-red-700">管理者以外のメンバーを全員外す</h2>
+        <p className="text-sm text-neutral-700">
+          「{instance.name}」から、<span className="font-semibold">{going.length}人</span>
+          を外します。Admin とインスタンス管理者({staying}人)は残ります。
+        </p>
+
+        <div className="max-h-40 overflow-y-auto rounded border border-neutral-200 p-2 text-xs text-neutral-700">
+          <ul className="flex flex-col gap-1">
+            {going.map((m) => (
+              <li key={m.id} className="flex items-center justify-between gap-2">
+                <span className="truncate">{memberDisplayName(m)}</span>
+                <span className="shrink-0 truncate text-neutral-400">{m.email}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <ul className="list-disc pl-5 text-xs leading-relaxed text-neutral-600">
+          <li>外された人は、このインスタンスに入れなくなります。シフトの担当も外れます。</li>
+          <li>アカウント自体、ほかのインスタンスへの参加、注文などの記録は消えません。</li>
+          <li>もう一度招待すれば戻せますが、外れたシフトの担当は戻りません。</li>
+        </ul>
+
+        <label className="flex flex-col gap-1 text-xs text-neutral-600">
+          確認のため、インスタンス名「{instance.name}」を入力してください
+          <input
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            autoComplete="off"
+            className="rounded border border-neutral-300 px-2 py-1.5 text-sm"
+          />
+        </label>
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
+        <div className="flex justify-end gap-2 pt-1">
+          <button type="button" onClick={onClose} disabled={busy} className="rounded px-3 py-1.5 text-sm text-neutral-600">
+            キャンセル
+          </button>
+          <button
+            type="button"
+            onClick={remove}
+            disabled={!matches || busy}
+            className="rounded bg-red-600 px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            {busy ? "外しています…" : `${going.length}人を外す`}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

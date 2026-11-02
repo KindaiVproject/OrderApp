@@ -27,8 +27,8 @@ export default function PaymentClient({ links, canEdit }: { links: LinkInfo[]; c
           className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-white p-4"
           onClick={() => setZoomed(null)}
         >
-          <p className="text-lg font-bold text-neutral-800">{zoomed.label}</p>
-          <QrImage src={zoomed.qr} label={zoomed.label} className="w-full max-w-[min(90vw,80vh)]" />
+          <p className="text-lg font-bold" style={{ color: ACCENTS[zoomed.kind] ?? DEFAULT_ACCENT }}>{zoomed.label}</p>
+          <QrImage src={zoomed.qr} kind={zoomed.kind} label={zoomed.label} className="w-full max-w-[min(90vw,80vh)]" />
           <p className="text-xs text-neutral-500">どこかをタップして閉じる</p>
         </div>
       )}
@@ -36,16 +36,28 @@ export default function PaymentClient({ links, canEdit }: { links: LinkInfo[]; c
   );
 }
 
-// The app's own logo sits in the middle. It covers about 5% of the code, well
-// inside what error-correction level H can lose. Payment companies' own logos
-// are deliberately not used: they are trademarks with usage rules.
-function QrImage({ src, label, className }: { src: string; label: string; className: string }) {
+// Each method gets its own accent so the two codes are told apart at a glance.
+const ACCENTS: Record<string, string> = { paypay: "#e11d48", dpayment: "#ea580c" };
+const DEFAULT_ACCENT = "#171717";
+
+// The badge in the middle carries the app's logo and the method's name (plain
+// text, not the companies' logos, which are trademarks with usage rules). It
+// covers about 7% of the code, well inside what error-correction level H can
+// lose. Sizes use container units so it scales with the zoomed view too.
+function QrImage({ src, kind, label, className }: { src: string; kind: string; label: string; className: string }) {
+  const accent = ACCENTS[kind] ?? DEFAULT_ACCENT;
   return (
-    <span className={`relative block aspect-square ${className}`}>
+    <span className={`@container relative block aspect-square ${className}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={src} alt={`${label}の決済QR`} className="size-full [image-rendering:pixelated]" />
-      <span className="absolute left-1/2 top-1/2 flex w-[22%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg bg-white p-[1.5%]">
-        <Image src="/logo.svg" alt="" width={64} height={64} className="size-full rounded-md" />
+      <span
+        className="absolute left-1/2 top-1/2 flex w-[27%] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-[1cqw] rounded-[3cqw] bg-white p-[1.8cqw]"
+        style={{ boxShadow: `inset 0 0 0 0.9cqw ${accent}` }}
+      >
+        <Image src="/logo.svg" alt="" width={64} height={64} className="w-[45%] rounded-[1.5cqw]" />
+        <span className="whitespace-nowrap font-bold leading-none" style={{ color: accent, fontSize: "5.4cqw" }}>
+          {label}
+        </span>
       </span>
     </span>
   );
@@ -89,8 +101,13 @@ function LinkCard({
   }
 
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-      <h2 className="text-sm font-semibold text-neutral-800">{link.label}</h2>
+    <section
+      className="flex flex-col gap-3 rounded-xl border border-neutral-200 border-t-4 bg-white p-4 shadow-sm"
+      style={{ borderTopColor: ACCENTS[link.kind] ?? DEFAULT_ACCENT }}
+    >
+      <h2 className="text-sm font-semibold" style={{ color: ACCENTS[link.kind] ?? DEFAULT_ACCENT }}>
+        {link.label}
+      </h2>
 
       {link.qr ? (
         <button
@@ -99,7 +116,7 @@ function LinkCard({
           aria-label={`${link.label}のQRを拡大`}
           className="mx-auto w-full max-w-64 rounded-lg border border-neutral-200 p-1"
         >
-          <QrImage src={link.qr} label={link.label} className="w-full" />
+          <QrImage src={link.qr} kind={link.kind} label={link.label} className="w-full" />
         </button>
       ) : (
         <p className="rounded-lg bg-neutral-100 px-3 py-8 text-center text-xs text-neutral-500">

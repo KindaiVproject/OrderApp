@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { normalizePaymentLink } from "@/lib/paymentLinks";
+import QrScanner from "./QrScanner";
 
 type LinkInfo = { kind: string; label: string; url: string; qr: string | null };
 
@@ -76,6 +78,7 @@ function LinkCard({
   const [value, setValue] = useState(link.url);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scanned, setScanned] = useState(false);
   const dirty = value.trim() !== link.url;
 
   async function save(url: string) {
@@ -134,12 +137,31 @@ function LinkCard({
             type="url"
             inputMode="url"
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setScanned(false);
+            }}
             placeholder="https://"
             maxLength={500}
             className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
           />
+          <QrScanner
+            label={link.label}
+            onRead={(text) => {
+              const url = normalizePaymentLink(text);
+              if (!url) {
+                setError("読み取ったQRは https:// で始まるリンクではありませんでした。決済リンクのQRか確認してください");
+                return;
+              }
+              setError(null);
+              setScanned(true);
+              setValue(url);
+            }}
+          />
           {error && <p className="text-xs text-red-600">{error}</p>}
+          {scanned && !error && dirty && (
+            <p className="text-xs text-green-700">読み取りました。内容を確認して「{link.url ? "変更を保存" : "登録"}」を押してください。</p>
+          )}
           <div className="flex gap-2">
             <button
               type="button"

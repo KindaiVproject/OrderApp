@@ -10,11 +10,12 @@ export default async function PaymentPage() {
   const canEdit = await isInstanceAdmin(instance.id, session?.user?.email);
 
   // QR images are drawn here, on the server, so the browser needs no QR code.
+  // Level H survives the logo PaymentClient lays over the middle.
   const links = await Promise.all(
     PAYMENT_LINK_KINDS.map(async ({ kind, label, field }) => {
       const url = instance[field];
       const qr = url
-        ? await QRCode.toDataURL(url, { errorCorrectionLevel: "M", margin: 2, width: 640 })
+        ? await QRCode.toDataURL(url, { errorCorrectionLevel: "H", margin: 2, width: 640 })
         : null;
       return { kind, label, url, qr };
     }),

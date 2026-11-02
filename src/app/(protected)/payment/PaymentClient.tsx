@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -27,16 +28,26 @@ export default function PaymentClient({ links, canEdit }: { links: LinkInfo[]; c
           onClick={() => setZoomed(null)}
         >
           <p className="text-lg font-bold text-neutral-800">{zoomed.label}</p>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={zoomed.qr}
-            alt={`${zoomed.label}の決済QR`}
-            className="aspect-square w-full max-w-[min(90vw,80vh)] [image-rendering:pixelated]"
-          />
+          <QrImage src={zoomed.qr} label={zoomed.label} className="w-full max-w-[min(90vw,80vh)]" />
           <p className="text-xs text-neutral-500">どこかをタップして閉じる</p>
         </div>
       )}
     </div>
+  );
+}
+
+// The app's own logo sits in the middle. It covers about 5% of the code, well
+// inside what error-correction level H can lose. Payment companies' own logos
+// are deliberately not used: they are trademarks with usage rules.
+function QrImage({ src, label, className }: { src: string; label: string; className: string }) {
+  return (
+    <span className={`relative block aspect-square ${className}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={`${label}の決済QR`} className="size-full [image-rendering:pixelated]" />
+      <span className="absolute left-1/2 top-1/2 flex w-[22%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg bg-white p-[1.5%]">
+        <Image src="/logo.svg" alt="" width={64} height={64} className="size-full rounded-md" />
+      </span>
+    </span>
   );
 }
 
@@ -88,8 +99,7 @@ function LinkCard({
           aria-label={`${link.label}のQRを拡大`}
           className="mx-auto w-full max-w-64 rounded-lg border border-neutral-200 p-1"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={link.qr} alt={`${link.label}の決済QR`} className="aspect-square w-full [image-rendering:pixelated]" />
+          <QrImage src={link.qr} label={link.label} className="w-full" />
         </button>
       ) : (
         <p className="rounded-lg bg-neutral-100 px-3 py-8 text-center text-xs text-neutral-500">

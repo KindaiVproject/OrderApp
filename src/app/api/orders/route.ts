@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
+import { change, snapshotOf } from "@/lib/revert";
 import type { OrderStatus, PaymentMethod } from "@generated/prisma/enums";
 
 const PAYMENT_METHODS: PaymentMethod[] = ["CASH", "PAYPAY", "D_PAYMENT"];
@@ -81,6 +82,7 @@ export async function POST(request: Request) {
     action: "CREATE",
     summary: `新規注文: ${orderItems.map((i) => `${i.productName}×${i.quantity}`).join(", ")}`,
     actorEmail: session?.user?.email,
+    changes: [change("ORDER", order.id, null, await snapshotOf("ORDER", order.id, instance.id))],
   });
 
   return NextResponse.json(order, { status: 201 });

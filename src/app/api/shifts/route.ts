@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { canEditShifts, getMemberInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
+import { change, snapshotOf } from "@/lib/revert";
 import { formatJstDateKey } from "@/lib/datetime";
 import { formatShiftRange, parseShiftInput } from "@/lib/shifts";
 
@@ -41,6 +42,7 @@ export async function POST(request: Request) {
     action: "CREATE",
     summary: `シフトを追加: ${formatJstDateKey(startsAt)} ${formatShiftRange(startsAt, endsAt)}(${assignments.length}名)`,
     actorEmail: session?.user?.email,
+    changes: [change("SHIFT", shift.id, null, await snapshotOf("SHIFT", shift.id, instance.id))],
   });
 
   return NextResponse.json(shift, { status: 201 });

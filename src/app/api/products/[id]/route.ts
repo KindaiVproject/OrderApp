@@ -4,6 +4,7 @@ import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { isValidProductImagePath } from "@/lib/uploads";
 import { logEdit } from "@/lib/editLog";
+import { change, snapshotOf } from "@/lib/revert";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const instance = await getCurrentInstance();
@@ -40,6 +41,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     data.imageUrl = imageUrl;
   }
 
+  const before = await snapshotOf("PRODUCT", id, instance.id);
   const product = await prisma.product.update({ where: { id }, data });
 
   const changes: string[] = [];
@@ -60,6 +62,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       action: "EDIT",
       summary: changes.join(" / "),
       actorEmail: session?.user?.email,
+      changes: [change("PRODUCT", id, before, await snapshotOf("PRODUCT", id, instance.id))],
     });
   }
 
@@ -76,6 +79,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   // Soft delete: keep the row so past orders/CSV history keep working.
+  const before = await snapshotOf("PRODUCT", id, instance.id);
   await prisma.product.update({ where: { id }, data: { active: false } });
 
   await logEdit({
@@ -85,6 +89,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     action: "DELETE",
     summary: `商品「${existing.name}」を削除`,
     actorEmail: session?.user?.email,
+    changes: [change("PRODUCT", id, before, await snapshotOf("PRODUCT", id, instance.id))],
   });
 
   return NextResponse.json({ ok: true });

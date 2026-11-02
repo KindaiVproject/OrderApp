@@ -4,6 +4,7 @@ import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { isValidProductImagePath } from "@/lib/uploads";
 import { logEdit } from "@/lib/editLog";
+import { change, snapshotOf } from "@/lib/revert";
 
 export async function GET() {
   const instance = await getCurrentInstance();
@@ -58,6 +59,7 @@ export async function POST(request: Request) {
     action: "CREATE",
     summary: `商品「${name}」を追加(${price}円)`,
     actorEmail: session?.user?.email,
+    changes: [change("PRODUCT", product.id, null, await snapshotOf("PRODUCT", product.id, instance.id))],
   });
 
   return NextResponse.json(product, { status: 201 });

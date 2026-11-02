@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { canEditShifts, getMemberInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
+import { change, snapshotOf } from "@/lib/revert";
 import { formatJstDateKey, formatJstTime } from "@/lib/datetime";
 import { resolveName } from "@/lib/memberName";
 
@@ -53,6 +54,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     startsAt.getTime() === shift.startsAt.getTime() && endsAt.getTime() === shift.endsAt.getTime();
   if (sameTime && role === assignment.role) return NextResponse.json({ ok: true, unchanged: true });
 
+  const before = await snapshotOf("SHIFT", shift.id, instance.id);
+  let createdShiftId: string | null = null;
   if (sameTime) {
     await prisma.shiftAssignment.update({ where: { id }, data: { role, calendarAddedAt: null } });
   } else if (shift.assignments.length === 1) {
@@ -65,7 +68,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       }),
     ]);
   } else {
-    await prisma.$transaction([
+    const [, created] = await prisma.$transaction([
       prisma.shiftAssignment.delete({ where: { id } }),
       prisma.shift.create({
         data: {
@@ -76,6 +79,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         },
       }),
     ]);
+    createdShiftId = created.id;
   }
 
   const was = `${assignment.role} ${formatJstTime(shift.startsAt)}〜${formatJstTime(shift.endsAt)}`;
@@ -87,6 +91,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     action: "EDIT",
     summary: `${who} のシフトを変更(${date}): ${was} → ${role} ${start}〜${end}`,
     actorEmail: session?.user?.email,
+    // Moving one person off a shared shift touches two shifts: the old one
+    // loses them and a new one is created.
+    changes: [
+      change("SHIFT", shift.id, before, await snapshotOf("SHIFT", shift.id, instance.id)),
+      ...(createdShiftId
+        ? [change("SHIFT", createdShiftId, null, await snapshotOf("SHIFT", createdShiftId, instance.id))]
+        : []),
+    ],
   });
   return NextResponse.json({ ok: true });
 }

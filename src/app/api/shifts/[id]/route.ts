@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { canEditShifts, getMemberInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
+import { change, snapshotOf } from "@/lib/revert";
 import { formatJstDateKey } from "@/lib/datetime";
 import { formatShiftRange, parseShiftInput } from "@/lib/shifts";
 
@@ -44,6 +45,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
   const { startsAt, endsAt, assignments } = parsed.input;
 
+  const before = await snapshotOf("SHIFT", id, instance.id);
   // Assignments are replaced wholesale, which also re-arms their reminders.
   const shift = await prisma.$transaction(async (tx) => {
     await tx.shiftAssignment.deleteMany({ where: { shiftId: id } });
@@ -61,6 +63,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     action: "EDIT",
     summary: `シフトを編集: ${formatJstDateKey(startsAt)} ${formatShiftRange(startsAt, endsAt)}(${assignments.length}名)`,
     actorEmail: email,
+    changes: [change("SHIFT", id, before, await snapshotOf("SHIFT", id, instance.id))],
   });
 
   return NextResponse.json(shift);
@@ -72,6 +75,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if ("error" in authz) return authz.error;
   const { instance, email, shift: existing } = authz;
 
+  const before = await snapshotOf("SHIFT", id, instance.id);
   await prisma.shift.delete({ where: { id } });
   await logEdit({
     instanceId: instance.id,
@@ -80,6 +84,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     action: "DELETE",
     summary: `シフトを削除: ${formatJstDateKey(existing.startsAt)} ${formatShiftRange(existing.startsAt, existing.endsAt)}`,
     actorEmail: email,
+    changes: [change("SHIFT", id, before, null)],
   });
   return NextResponse.json({ ok: true });
 }

@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
+import { change, snapshotOf } from "@/lib/revert";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const instance = await getCurrentInstance();
@@ -16,6 +17,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "既にキャンセル済みです" }, { status: 400 });
   }
 
+  const before = await snapshotOf("ORDER", id, instance.id);
   const order = await prisma.order.update({
     where: { id },
     data: { status: "CANCELLED" },
@@ -29,6 +31,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     action: "CANCEL",
     summary: "注文をキャンセル",
     actorEmail: session?.user?.email,
+    changes: [change("ORDER", id, before, await snapshotOf("ORDER", id, instance.id))],
   });
 
   return NextResponse.json(order);

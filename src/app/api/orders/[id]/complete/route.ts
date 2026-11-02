@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
+import { change, snapshotOf } from "@/lib/revert";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payment";
 import type { PaymentMethod } from "@generated/prisma/enums";
 
@@ -22,6 +23,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     ? body.paymentMethod
     : undefined;
 
+  const before = await snapshotOf("ORDER", id, instance.id);
   const order = await prisma.order.update({
     where: { id },
     data: {
@@ -39,6 +41,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     action: "COMPLETE",
     summary: `提供完了(支払い方法: ${PAYMENT_METHOD_LABELS[order.paymentMethod as PaymentMethod]})`,
     actorEmail: session?.user?.email,
+    changes: [change("ORDER", id, before, await snapshotOf("ORDER", id, instance.id))],
   });
 
   return NextResponse.json(order);

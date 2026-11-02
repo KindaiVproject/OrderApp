@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
+import { change, snapshotOf } from "@/lib/revert";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payment";
 import type { PaymentMethod } from "@generated/prisma/enums";
 
@@ -72,6 +73,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     itemsUpdate = orderItems;
   }
 
+  const before = await snapshotOf("ORDER", id, instance.id);
   const order = await prisma.$transaction(async (tx) => {
     if (itemsUpdate) {
       await tx.orderItem.deleteMany({ where: { orderId: id } });
@@ -112,6 +114,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       action: "EDIT",
       summary: changes.join(" / "),
       actorEmail: session?.user?.email,
+      changes: [change("ORDER", id, before, await snapshotOf("ORDER", id, instance.id))],
     });
   }
 

@@ -202,9 +202,13 @@ model EditLog {
   instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
   entityType String // "ORDER" | "PRODUCT"
   entityId   String
-  action     String // "EDIT" | "CANCEL" | "COMPLETE" | "DELETE"
+  action     String // "CREATE" | "EDIT" | "CANCEL" | "COMPLETE" | "DELETE" | "INVITE" | "REVERT"
   summary    String
   actorEmail String
+  // What the change did, as before/after states per entity, so it can be put
+  // back (src/lib/revert.ts). null on old entries and on kinds that cannot be
+  // reverted (members, settings, shift roles).
+  changes    Json?
   createdAt  DateTime @default(now())
 
   @@index([instanceId, createdAt])

@@ -5,6 +5,8 @@ import { MEMBER_INVITE_SUFFIX, MEMBER_ROLE_MARKER } from "@/lib/editLog";
 import { resolveName } from "@/lib/memberName";
 import { prisma } from "@/lib/prisma";
 import { formatJstDateTime } from "@/lib/datetime";
+import { revertableLogIds } from "@/lib/revert";
+import RevertButton from "./RevertButton";
 
 const ENTITY_LABELS: Record<string, string> = {
   ORDER: "注文",
@@ -21,6 +23,7 @@ const ACTION_LABELS: Record<string, string> = {
   COMPLETE: "完了",
   DELETE: "削除",
   INVITE: "招待",
+  REVERT: "取り消し",
 };
 
 const ACTION_STYLES: Record<string, string> = {
@@ -30,6 +33,7 @@ const ACTION_STYLES: Record<string, string> = {
   COMPLETE: "bg-green-100 text-green-700",
   DELETE: "bg-neutral-200 text-neutral-600",
   INVITE: "bg-purple-100 text-purple-700",
+  REVERT: "bg-amber-100 text-amber-700",
 };
 
 export default async function EditLogPage() {
@@ -43,6 +47,10 @@ export default async function EditLogPage() {
     orderBy: { createdAt: "desc" },
     take: 300,
   });
+
+  // Entries that stored before/after states can be put back — as long as nobody
+  // has touched the same thing since.
+  const revertable = await revertableLogIds(logs, instance.id);
 
   // Names are resolved at render time (not stored in the log), so past
   // entries pick up names too. Same priority as the member lists: the
@@ -91,7 +99,7 @@ export default async function EditLogPage() {
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
       <h1 className="text-base font-semibold text-neutral-800">編集履歴</h1>
       <p className="text-xs text-neutral-500">
-        注文・商品の登録/編集/キャンセル/完了/削除、シフト・メンバー招待の記録です。インスタンス管理者・管理者のみ閲覧できます。
+        注文・商品の登録/編集/キャンセル/完了/削除、シフト・メンバー招待の記録です。インスタンス管理者・管理者のみ閲覧できます。注文・商品・シフトの変更は「取り消す」で元に戻せます(取り消しも履歴に残り、やり直せます)。
       </p>
 
       <ul className="flex flex-col gap-2">
@@ -108,6 +116,16 @@ export default async function EditLogPage() {
               <span>{actorLabels.get(log.actorEmail) ?? log.actorEmail}</span>
             </div>
             <p className="mt-1 text-sm text-neutral-700">{summaryOf(log)}</p>
+            {log.changes != null &&
+              (revertable.has(log.id) ? (
+                <div className="mt-2">
+                  <RevertButton logId={log.id} summary={summaryOf(log)} isRevert={log.action === "REVERT"} />
+                </div>
+              ) : (
+                <p className="mt-1 text-xs text-neutral-400">
+                  この後に同じ対象が変更されているため、取り消せません(新しい変更から順に取り消してください)
+                </p>
+              ))}
           </li>
         ))}
         {logs.length === 0 && <p className="text-sm text-neutral-400">まだ編集履歴がありません</p>}

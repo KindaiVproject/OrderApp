@@ -11,7 +11,7 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
 
 function csvEscape(value: string | number) {
   const str = String(value);
-  if (/[",\n]/.test(str)) {
+  if (/[",\r\n]/.test(str)) {
     return `"${str.replace(/"/g, '""')}"`;
   }
   return str;
@@ -27,7 +27,7 @@ export async function GET() {
     orderBy: { createdAt: "asc" },
   });
 
-  const rows = ["ID(OrderDB),timestamp,支払い方法,商品名,点数,商品単体価格"];
+  const rows = ["ID(OrderDB),timestamp,支払い方法,商品名,点数,商品単体価格,顧客特徴"];
   for (const order of orders) {
     const timestamp = formatJstDateTime(order.createdAt);
     const payment = PAYMENT_LABELS[order.paymentMethod as PaymentMethod];
@@ -40,6 +40,7 @@ export async function GET() {
           csvEscape(item.productName),
           csvEscape(item.quantity),
           csvEscape(item.unitPrice),
+          csvEscape(order.customerNote ?? ""),
         ].join(","),
       );
     }

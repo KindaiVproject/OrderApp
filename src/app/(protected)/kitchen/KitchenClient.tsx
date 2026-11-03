@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { ProductModel } from "@generated/prisma/models";
 import type { PaymentMethod } from "@generated/prisma/enums";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payment";
@@ -9,6 +9,15 @@ import EditOrderModal, { type OrderWithItems as Order } from "@/components/EditO
 import CompleteOrderModal from "@/components/CompleteOrderModal";
 import ConfirmModal from "@/components/ConfirmModal";
 import ScrollToTopButton from "@/components/ScrollToTopButton";
+import {
+  getOrderSoundServerSnapshot,
+  getOrderSoundSnapshot,
+  playOrderSound,
+  saveOrderSound,
+  subscribeOrderSound,
+  unlockAudio,
+} from "@/lib/orderSound";
+import OrderSoundControl from "./OrderSoundControl";
 
 const POLL_INTERVAL_MS = 2500;
 // Waiting orders at or above this count turn the counter red.
@@ -28,6 +37,29 @@ export default function KitchenClient({
   const [cancellingOrder, setCancellingOrder] = useState<Order | null>(null);
   const [busy, setBusy] = useState(false);
   const pollingPaused = useRef(false);
+  const sound = useSyncExternalStore(subscribeOrderSound, getOrderSoundSnapshot, getOrderSoundServerSnapshot);
+  const soundRef = useRef(sound);
+  // Ids seen on the last fetch, so only orders that are new since then ring.
+  const knownIds = useRef(new Set(initialOrders.map((o) => o.id)));
+
+  useEffect(() => {
+    soundRef.current = sound;
+  }, [sound]);
+
+  useEffect(() => {
+    // Browsers keep audio muted until the page is touched; any tap unlocks it.
+    const unlock = () => {
+      void unlockAudio();
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+    window.addEventListener("pointerdown", unlock);
+    window.addEventListener("keydown", unlock);
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, []);
 
   useEffect(() => {
     pollingPaused.current = editingOrder !== null || completingOrder !== null || cancellingOrder !== null;
@@ -39,7 +71,10 @@ export default function KitchenClient({
       try {
         const res = await fetch("/api/orders?status=WAITING");
         if (!res.ok) return;
-        const data = await res.json();
+        const data: Order[] = await res.json();
+        const arrived = data.some((o) => !knownIds.current.has(o.id));
+        knownIds.current = new Set(data.map((o) => o.id));
+        if (arrived) playOrderSound(soundRef.current.id, soundRef.current.volume);
         setOrders(data);
       } catch {
         // ignore transient network errors, next tick retries
@@ -98,7 +133,10 @@ export default function KitchenClient({
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-base font-semibold text-neutral-800">厨房</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-base font-semibold text-neutral-800">厨房</h1>
+          <OrderSoundControl settings={sound} onChange={saveOrderSound} />
+        </div>
         <div
           aria-live="polite"
           className={`flex items-baseline gap-1.5 rounded-xl border px-4 py-1.5 shadow-sm ${waitingTone}`}

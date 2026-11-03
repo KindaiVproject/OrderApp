@@ -4,6 +4,7 @@ import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
 import { change, snapshotOf } from "@/lib/revert";
+import { splitComplete } from "@/lib/splitOrder";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payment";
 import type { PaymentMethod } from "@generated/prisma/enums";
 
@@ -15,10 +16,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const session = await auth();
 
-  const existing = await prisma.order.findFirst({ where: { id, instanceId: instance.id } });
+  const existing = await prisma.order.findFirst({
+    where: { id, instanceId: instance.id },
+    include: { items: true },
+  });
   if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const body = await request.json().catch(() => ({}));
+
+  if (Array.isArray(body?.split)) {
+    if (existing.status !== "WAITING") {
+      return NextResponse.json({ error: "待機中の注文だけ分けられます" }, { status: 400 });
+    }
+    const result = await splitComplete(existing, body.split, instance.id, session?.user?.email);
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
+    return NextResponse.json(result.order);
+  }
   const paymentMethod: PaymentMethod | undefined = PAYMENT_METHODS.includes(body?.paymentMethod)
     ? body.paymentMethod
     : undefined;

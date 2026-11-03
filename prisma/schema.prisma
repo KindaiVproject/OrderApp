@@ -117,6 +117,21 @@ model Instance {
   editLogs   EditLog[]
   shifts     Shift[]
   shiftRoles ShiftRole[]
+  otherQrs   OtherQr[]
+}
+
+// Extra QR codes shown on /payment besides PayPay / d払い (a form, a LINE
+// account, a shop page…). The label is filled from the page's metadata when
+// registering and can be edited at any time.
+model OtherQr {
+  id         String   @id @default(uuid())
+  instanceId String
+  instance   Instance @relation(fields: [instanceId], references: [id], onDelete: Cascade)
+  label      String
+  url        String
+  createdAt  DateTime @default(now())
+
+  @@index([instanceId, createdAt])
 }
 
 // Roles an Admin pre-registers per instance; the shift form picks from these.

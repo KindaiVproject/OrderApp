@@ -3,11 +3,19 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { normalizePaymentLink } from "@/lib/paymentLinks";
+import OtherQrs, { type OtherQrInfo } from "./OtherQrs";
+import QrImage, { ACCENTS, DEFAULT_ACCENT, type LinkInfo } from "./QrImage";
 import QrScanner from "./QrScanner";
 
-type LinkInfo = { kind: string; label: string; url: string; qr: string | null };
-
-export default function PaymentClient({ links, canEdit }: { links: LinkInfo[]; canEdit: boolean }) {
+export default function PaymentClient({
+  links,
+  others,
+  canEdit,
+}: {
+  links: LinkInfo[];
+  others: OtherQrInfo[];
+  canEdit: boolean;
+}) {
   const [zoomed, setZoomed] = useState<LinkInfo | null>(null);
 
   return (
@@ -23,6 +31,8 @@ export default function PaymentClient({ links, canEdit }: { links: LinkInfo[]; c
         ))}
       </div>
 
+      <OtherQrs items={others} canEdit={canEdit} onZoom={setZoomed} />
+
       {zoomed?.qr && (
         <div
           className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-white p-4"
@@ -34,39 +44,6 @@ export default function PaymentClient({ links, canEdit }: { links: LinkInfo[]; c
         </div>
       )}
     </div>
-  );
-}
-
-// Each method gets its own accent and initial so the two codes are told apart
-// at a glance.
-const ACCENTS: Record<string, string> = { paypay: "#e11d48", dpayment: "#ea580c" };
-const INITIALS: Record<string, string> = { paypay: "P", dpayment: "d" };
-const DEFAULT_ACCENT = "#171717";
-
-// The badge in the middle is just the service's initial in a gothic (sans-serif)
-// face: plain text, not the companies' logos, which are trademarks with usage
-// rules. It covers about 4% of the code, well inside what error-correction
-// level H can lose. Sizes use container units so it scales with the zoomed
-// view too.
-function QrImage({ src, kind, label, className }: { src: string; kind: string; label: string; className: string }) {
-  const accent = ACCENTS[kind] ?? DEFAULT_ACCENT;
-  return (
-    <span className={`@container relative block aspect-square ${className}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={`${label}の決済QR`} className="size-full [image-rendering:pixelated]" />
-      <span
-        aria-hidden
-        className="absolute left-1/2 top-1/2 flex aspect-square w-[20%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[3cqw] bg-white font-bold leading-none"
-        style={{
-          boxShadow: `inset 0 0 0 1cqw ${accent}`,
-          color: accent,
-          fontSize: "13cqw",
-          fontFamily: '"Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Noto Sans JP", Meiryo, sans-serif',
-        }}
-      >
-        {INITIALS[kind] ?? label.slice(0, 1)}
-      </span>
-    </span>
   );
 }
 

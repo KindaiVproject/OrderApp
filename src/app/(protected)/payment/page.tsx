@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { isInstanceAdmin, requireCurrentInstance } from "@/lib/instance";
 import { PAYMENT_LINK_KINDS } from "@/lib/paymentLinks";
+import { prisma } from "@/lib/prisma";
 import QRCode from "qrcode";
 import PaymentClient from "./PaymentClient";
 
@@ -21,5 +22,18 @@ export default async function PaymentPage() {
     }),
   );
 
-  return <PaymentClient links={links} canEdit={canEdit} />;
+  const otherRows = await prisma.otherQr.findMany({
+    where: { instanceId: instance.id },
+    orderBy: { createdAt: "asc" },
+  });
+  const others = await Promise.all(
+    otherRows.map(async ({ id, label, url }) => ({
+      id,
+      label,
+      url,
+      qr: await QRCode.toDataURL(url, { errorCorrectionLevel: "H", margin: 2, width: 640 }),
+    })),
+  );
+
+  return <PaymentClient links={links} others={others} canEdit={canEdit} />;
 }

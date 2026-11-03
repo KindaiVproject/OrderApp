@@ -7,6 +7,7 @@ import type { PaymentMethod } from "@generated/prisma/enums";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payment";
 import { formatJstDateTime } from "@/lib/datetime";
 import EditOrderModal, { type OrderWithItems as Order } from "@/components/EditOrderModal";
+import ConfirmModal from "@/components/ConfirmModal";
 import ScrollToTopButton from "@/components/ScrollToTopButton";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -24,12 +25,17 @@ const STATUS_STYLES: Record<string, string> = {
 export default function HistoryClient({
   initialOrders,
   products,
+  canManage,
 }: {
   initialOrders: Order[];
   products: ProductModel[];
+  // Instance admins (and Admin) can send a completed order back or delete it.
+  canManage: boolean;
 }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [reopeningOrder, setReopeningOrder] = useState<Order | null>(null);
+  const [deletingOrder, setDeletingOrder] = useState<Order | null>(null);
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
@@ -82,15 +88,35 @@ export default function HistoryClient({
               </ul>
               <div className="mt-1 flex items-center justify-between">
                 <span className="text-sm font-semibold text-neutral-700">{total}円</span>
-                {!cancelled && (
-                  <button
-                    type="button"
-                    onClick={() => setEditingOrder(order)}
-                    className="rounded px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100"
-                  >
-                    編集
-                  </button>
-                )}
+                <div className="flex items-center">
+                  {canManage && order.status === "COMPLETED" && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setReopeningOrder(order)}
+                        className="rounded px-2 py-1 text-xs text-amber-700 hover:bg-amber-50"
+                      >
+                        差し戻し
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeletingOrder(order)}
+                        className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                      >
+                        削除
+                      </button>
+                    </>
+                  )}
+                  {!cancelled && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingOrder(order)}
+                      className="rounded px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100"
+                    >
+                      編集
+                    </button>
+                  )}
+                </div>
               </div>
             </li>
           );
@@ -109,7 +135,46 @@ export default function HistoryClient({
           }}
         />
       )}
+
+      {reopeningOrder && (
+        <ConfirmModal
+          title="注文を差し戻す"
+          message={`この注文(${orderLabel(reopeningOrder)})を待機中に戻し、厨房の画面にもう一度出します。提供済みの記録はリセットされます。`}
+          confirmLabel="差し戻す"
+          danger={false}
+          onClose={() => setReopeningOrder(null)}
+          onConfirm={async () => {
+            const res = await fetch(`/api/orders/${reopeningOrder.id}/reopen`, { method: "POST" });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error ?? "差し戻しに失敗しました");
+            setOrders((prev) => prev.map((o) => (o.id === data.id ? data : o)));
+            setReopeningOrder(null);
+          }}
+        />
+      )}
+
+      {deletingOrder && (
+        <ConfirmModal
+          title="注文を削除(なかったことにする)"
+          message={`この注文(${orderLabel(deletingOrder)})を完全に消します。履歴・CSV・売上からなくなります。編集履歴から元に戻せます。`}
+          confirmLabel="削除する"
+          onClose={() => setDeletingOrder(null)}
+          onConfirm={async () => {
+            const res = await fetch(`/api/orders/${deletingOrder.id}`, { method: "DELETE" });
+            if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              throw new Error(data.error ?? "削除に失敗しました");
+            }
+            setOrders((prev) => prev.filter((o) => o.id !== deletingOrder.id));
+            setDeletingOrder(null);
+          }}
+        />
+      )}
       <ScrollToTopButton />
     </div>
   );
+}
+
+function orderLabel(order: Order) {
+  return order.items.map((i) => `${i.productName} × ${i.quantity}`).join(", ");
 }

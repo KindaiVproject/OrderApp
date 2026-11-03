@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getCurrentInstance } from "@/lib/instance";
+import { getCurrentInstance, isInstanceAdmin } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { logEdit } from "@/lib/editLog";
 import { change, snapshotOf } from "@/lib/revert";
@@ -127,14 +127,37 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   return NextResponse.json(order);
 }
 
+// "Make it as if the order never happened": removes a completed order for good
+// (it leaves the history, the CSV and the sales figures). Instance admins only.
+// Logged with the before state, so the edit log can bring it back.
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth();
   const instance = await getCurrentInstance();
-  if (!instance) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!instance || !(await isInstanceAdmin(instance.id, session?.user?.email))) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 403 });
+  }
   const { id } = await params;
 
-  const existing = await prisma.order.findFirst({ where: { id, instanceId: instance.id } });
+  const existing = await prisma.order.findFirst({
+    where: { id, instanceId: instance.id },
+    include: { items: true },
+  });
   if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (existing.status !== "COMPLETED") {
+    return NextResponse.json({ error: "完了済みの注文だけ削除できます" }, { status: 400 });
+  }
 
+  const before = await snapshotOf("ORDER", id, instance.id);
   await prisma.order.delete({ where: { id } });
+
+  await logEdit({
+    instanceId: instance.id,
+    entityType: "ORDER",
+    entityId: id,
+    action: "DELETE",
+    summary: `完了済みの注文を削除(なかったことにしました): ${itemsSummary(existing.items)} / ${PAYMENT_METHOD_LABELS[existing.paymentMethod as PaymentMethod]}`,
+    actorEmail: session?.user?.email,
+    changes: [change("ORDER", id, before, null)],
+  });
   return NextResponse.json({ ok: true });
 }

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import BarChart, { QUANTITY_COLOR, type BarDatum } from "@/components/BarChart";
 import { formatJstDateShort } from "@/lib/datetime";
-import type { DailyTotal, PaymentDaily, PaymentTotal } from "@/lib/stats";
+import type { DailyTotal, PaymentDaily, PaymentTotal, ProductTotal } from "@/lib/stats";
 
 // One color per payment method, so a method reads the same in the bars and the table.
 const PAYMENT_COLORS: Record<string, string> = { CASH: "#2a78d6", PAYPAY: "#e11d48", D_PAYMENT: "#ea580c" };
@@ -13,11 +13,13 @@ export default function StatsClient({
   hourlyByDay,
   byPayment,
   dailyByPayment,
+  byProduct,
 }: {
   dailyTotals: DailyTotal[];
   hourlyByDay: Record<string, number[]>;
   byPayment: PaymentTotal[];
   dailyByPayment: PaymentDaily[];
+  byProduct: ProductTotal[];
 }) {
   const days = useMemo(() => dailyTotals.map((d) => d.date), [dailyTotals]);
   const [selectedDay, setSelectedDay] = useState(days[days.length - 1] ?? "");
@@ -25,6 +27,7 @@ export default function StatsClient({
   const [showQuantityTable, setShowQuantityTable] = useState(false);
   const [showHourlyTable, setShowHourlyTable] = useState(false);
   const [showPaymentTable, setShowPaymentTable] = useState(false);
+  const [productSort, setProductSort] = useState<"total" | "quantity">("total");
 
   const dailyBars: BarDatum[] = dailyTotals.map((d) => ({
     label: formatJstDateShort(d.date),
@@ -63,6 +66,12 @@ export default function StatsClient({
     });
   }, [hourlyByDay, selectedDay]);
 
+  const sortedProducts = useMemo(
+    () => (productSort === "total" ? byProduct : [...byProduct].sort((a, b) => b.quantity - a.quantity || b.total - a.total)),
+    [byProduct, productSort],
+  );
+  const productTotal = byProduct.reduce((sum, p) => sum + p.total, 0);
+  const productMax = Math.max(0, ...byProduct.map((p) => (productSort === "total" ? p.total : p.quantity)));
   const paymentTotal = byPayment.reduce((sum, p) => sum + p.total, 0);
   const selectedDayTotal = dailyTotals.find((d) => d.date === selectedDay)?.total ?? 0;
 
@@ -231,6 +240,73 @@ export default function StatsClient({
                 </tbody>
               </table>
             )}
+          </>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-neutral-700">商品別</h2>
+          <span className="text-xs text-neutral-500">
+            合計 <span className="font-semibold text-neutral-800">{productTotal.toLocaleString("ja-JP")}円</span>
+          </span>
+        </div>
+        <p className="text-[11px] text-neutral-400">0円の商品(廃棄・検食など)は含めていません。</p>
+        {byProduct.length === 0 ? (
+          <p className="text-sm text-neutral-400">まだ売上データがありません</p>
+        ) : (
+          <>
+            <div className="flex gap-1 self-start text-xs">
+              {(
+                [
+                  ["total", "売上順"],
+                  ["quantity", "個数順"],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setProductSort(key)}
+                  aria-pressed={productSort === key}
+                  className={`rounded-full border px-3 py-1 ${
+                    productSort === key
+                      ? "border-neutral-800 bg-neutral-800 text-white"
+                      : "border-neutral-300 text-neutral-600"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <ol className="flex flex-col gap-3">
+              {sortedProducts.map((p, i) => {
+                const value = productSort === "total" ? p.total : p.quantity;
+                const share = productTotal > 0 ? (p.total / productTotal) * 100 : 0;
+                return (
+                  <li key={p.name} className="flex flex-col gap-1">
+                    <div className="flex items-baseline justify-between gap-2 text-xs">
+                      <span className="min-w-0 truncate font-semibold text-neutral-800">
+                        <span className="mr-1.5 font-normal text-neutral-400">{i + 1}</span>
+                        {p.name}
+                      </span>
+                      <span className="shrink-0 text-neutral-500">
+                        <span className="font-semibold text-neutral-800">{p.total.toLocaleString("ja-JP")}円</span>
+                        ・{share.toFixed(1)}%・{p.quantity.toLocaleString("ja-JP")}個
+                      </span>
+                    </div>
+                    <div className="h-2.5 overflow-hidden rounded-full bg-neutral-100">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${productMax > 0 ? (value / productMax) * 100 : 0}%`,
+                          backgroundColor: productSort === "total" ? "#2a78d6" : QUANTITY_COLOR,
+                        }}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
           </>
         )}
       </div>

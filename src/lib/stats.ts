@@ -5,6 +5,7 @@ import { PAYMENT_METHOD_OPTIONS } from "@/lib/payment";
 export type DailyTotal = { date: string; total: number; count: number; quantity: number };
 export type HourlyTotal = { hour: number; total: number };
 export type PaymentTotal = { method: string; label: string; total: number; count: number; quantity: number };
+export type ProductTotal = { name: string; total: number; quantity: number; orders: number };
 export type PaymentDaily = { date: string; totals: Record<string, number> };
 
 export async function getOrderStats(instanceId: string) {
@@ -25,6 +26,9 @@ export async function getOrderStats(instanceId: string) {
     quantity: 0,
   }));
   const paymentByDay = new Map<string, Record<string, number>>();
+  // Per product name (the name snapshot on the order line, so renamed or
+  // deleted products still count). Free lines (0円: 廃棄・検食 etc.) are left out.
+  const productMap = new Map<string, ProductTotal>();
 
   for (const order of orders) {
     const total = order.items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
@@ -37,6 +41,15 @@ export async function getOrderStats(instanceId: string) {
     day.count += 1;
     day.quantity += quantity;
     dailyMap.set(dateKey, day);
+
+    for (const item of order.items) {
+      if (item.unitPrice === 0) continue;
+      const p = productMap.get(item.productName) ?? { name: item.productName, total: 0, quantity: 0, orders: 0 };
+      p.total += item.unitPrice * item.quantity;
+      p.quantity += item.quantity;
+      p.orders += 1;
+      productMap.set(item.productName, p);
+    }
 
     const method = byPayment.find((p) => p.method === order.paymentMethod);
     if (method) {
@@ -65,5 +78,9 @@ export async function getOrderStats(instanceId: string) {
     totals: paymentByDay.get(date) ?? {},
   }));
 
-  return { dailyTotals, hourlyByDay: hourlyByDayObj, byPayment, dailyByPayment };
+  const byProduct = Array.from(productMap.values()).sort(
+    (a, b) => b.total - a.total || b.quantity - a.quantity || a.name.localeCompare(b.name, "ja"),
+  );
+
+  return { dailyTotals, hourlyByDay: hourlyByDayObj, byPayment, dailyByPayment, byProduct };
 }

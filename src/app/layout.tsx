@@ -35,6 +35,11 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#171717",
+  // No pinch zoom (an operations screen that must not jump around mid-service).
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

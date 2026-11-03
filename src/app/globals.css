@@ -54,3 +54,9 @@ html,
 body {
   overscroll-behavior-y: none;
 }
+
+/* No pinch zoom or double-tap zoom: only panning (scrolling) is allowed. */
+html,
+body {
+  touch-action: pan-x pan-y;
+}

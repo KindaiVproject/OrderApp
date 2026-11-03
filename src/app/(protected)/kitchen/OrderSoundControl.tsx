@@ -8,19 +8,27 @@ import {
   playOrderSound,
   unlockAudio,
   type OrderSoundId,
-  type OrderSoundSettings,
 } from "@/lib/orderSound";
 
 // "Order sound" button for the kitchen header: pick the chime, set the volume,
 // and listen to it. Tapping anything here also unlocks audio for the page.
 export default function OrderSoundControl({
-  settings,
-  onChange,
+  soundId,
+  volume,
+  canEdit,
+  onChangeSound,
+  onChangeVolume,
 }: {
-  settings: OrderSoundSettings;
-  onChange: (next: OrderSoundSettings) => void;
+  soundId: OrderSoundId;
+  volume: number;
+  // Which sound rings is the instance's setting; only instance admins can change it.
+  canEdit: boolean;
+  // Resolves to an error message, or null when saved.
+  onChangeSound: (id: OrderSoundId) => Promise<string | null>;
+  onChangeVolume: (volume: number) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const running = useSyncExternalStore(onAudioStateChange, isAudioRunning, () => false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -37,8 +45,8 @@ export default function OrderSoundControl({
     if (await unlockAudio()) playOrderSound(id, volume);
   }
 
-  const current = ORDER_SOUNDS.find((s) => s.id === settings.id);
-  const muted = settings.id === "none";
+  const current = ORDER_SOUNDS.find((s) => s.id === soundId);
+  const muted = soundId === "none" || volume === 0;
   // Sound is on but the browser hasn't allowed it yet (needs one tap on the page).
   const locked = !muted && !running;
 
@@ -67,27 +75,34 @@ export default function OrderSoundControl({
             <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" strokeLinecap="round" />
           )}
         </svg>
-        {muted ? "音なし" : (current?.label ?? "")}
+        {soundId === "none" ? "音なし" : volume === 0 ? "消音" : (current?.label ?? "")}
       </button>
 
       {open && (
         <div className="absolute left-0 top-full z-30 mt-2 w-64 rounded-xl border border-neutral-200 bg-white p-3 shadow-lg">
-          <h2 className="mb-2 text-sm font-semibold text-neutral-800">注文が入ったときの音</h2>
+          <h2 className="mb-0.5 text-sm font-semibold text-neutral-800">注文が入ったときの音</h2>
+          <p className="mb-2 text-[11px] text-neutral-500">
+            {canEdit
+              ? "選んだ音は、このインスタンスの全員の厨房画面で鳴ります。"
+              : "音の種類はインスタンスの管理者が決めています。"}
+          </p>
           <ul className="flex flex-col gap-1">
             {ORDER_SOUNDS.map((s) => (
               <li key={s.id}>
                 <label
-                  className={`flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 ${
-                    settings.id === s.id ? "bg-neutral-100" : "hover:bg-neutral-50"
+                  className={`flex items-center gap-2 rounded-lg px-2 py-1.5 ${
+                    soundId === s.id ? "bg-neutral-100" : canEdit ? "cursor-pointer hover:bg-neutral-50" : ""
                   }`}
                 >
                   <input
                     type="radio"
                     name="order-sound"
-                    checked={settings.id === s.id}
-                    onChange={() => {
-                      onChange({ ...settings, id: s.id });
-                      void preview(s.id, settings.volume);
+                    checked={soundId === s.id}
+                    disabled={!canEdit}
+                    onChange={async () => {
+                      setError(null);
+                      void preview(s.id, volume);
+                      setError(await onChangeSound(s.id));
                     }}
                   />
                   <span className="flex-1">
@@ -99,7 +114,7 @@ export default function OrderSoundControl({
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
-                        void preview(s.id, settings.volume);
+                        void preview(s.id, volume);
                       }}
                       className="rounded border border-neutral-300 px-2 py-0.5 text-[11px] text-neutral-600 hover:bg-neutral-50"
                     >
@@ -110,6 +125,7 @@ export default function OrderSoundControl({
               </li>
             ))}
           </ul>
+          {error && <p className="mt-1 text-[11px] text-red-600">{error}</p>}
 
           <label className="mt-3 flex items-center gap-2 text-xs text-neutral-600">
             音量
@@ -118,21 +134,20 @@ export default function OrderSoundControl({
               min={0}
               max={1}
               step={0.05}
-              value={settings.volume}
-              disabled={muted}
-              onChange={(e) => onChange({ ...settings, volume: Number(e.target.value) })}
-              onPointerUp={() => void preview(settings.id, settings.volume)}
-              onKeyUp={() => void preview(settings.id, settings.volume)}
+              value={volume}
+              onChange={(e) => onChangeVolume(Number(e.target.value))}
+              onPointerUp={() => void preview(soundId, volume)}
+              onKeyUp={() => void preview(soundId, volume)}
               className="flex-1"
             />
           </label>
+          <p className="mt-1 text-[11px] text-neutral-400">音量はこの端末だけの設定です。</p>
 
           {locked && (
             <p className="mt-2 text-[11px] text-amber-700">
               このページでまだ音が許可されていません。「試聴」を一度押すと鳴るようになります。
             </p>
           )}
-          <p className="mt-2 text-[11px] text-neutral-400">この端末だけの設定です。</p>
         </div>
       )}
     </div>

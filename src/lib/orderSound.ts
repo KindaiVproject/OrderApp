@@ -1,7 +1,6 @@
 // The chime the kitchen screen plays when a new order arrives. The sounds are
 // synthesized with the Web Audio API, so there are no audio files to host and
-// nothing to license. The choice lives on the device (localStorage): a kitchen
-// tablet and a phone want different things.
+// nothing to license.
 
 export type OrderSoundId = "none" | "chime" | "bell" | "beep";
 
@@ -12,68 +11,49 @@ export const ORDER_SOUNDS: { id: OrderSoundId; label: string; note: string }[] =
   { id: "none", label: "鳴らさない", note: "" },
 ];
 
-export type OrderSoundSettings = { id: OrderSoundId; volume: number };
+export const DEFAULT_ORDER_SOUND_ID: OrderSoundId = "chime";
 
-export const DEFAULT_ORDER_SOUND: OrderSoundSettings = { id: "chime", volume: 0.8 };
-
-const STORAGE_KEY = "orderapp.orderSound";
-
-function isSoundId(v: unknown): v is OrderSoundId {
+export function isOrderSoundId(v: unknown): v is OrderSoundId {
   return ORDER_SOUNDS.some((s) => s.id === v);
 }
 
-function parse(raw: string | null): OrderSoundSettings {
-  if (!raw) return DEFAULT_ORDER_SOUND;
+// Which sound rings is the instance's setting (Instance.orderSound, shared by
+// everyone in it). The volume depends on the speaker, so it stays on the device.
+const DEFAULT_VOLUME = 0.8;
+const VOLUME_KEY = "orderapp.orderSoundVolume";
+const volumeListeners = new Set<() => void>();
+
+export function getVolumeSnapshot(): number {
   try {
-    const parsed = JSON.parse(raw);
-    const volume = typeof parsed?.volume === "number" ? Math.min(1, Math.max(0, parsed.volume)) : 0.8;
-    return { id: isSoundId(parsed?.id) ? parsed.id : DEFAULT_ORDER_SOUND.id, volume };
+    const n = Number(localStorage.getItem(VOLUME_KEY));
+    return localStorage.getItem(VOLUME_KEY) === null || Number.isNaN(n)
+      ? DEFAULT_VOLUME
+      : Math.min(1, Math.max(0, n));
   } catch {
-    return DEFAULT_ORDER_SOUND;
+    return DEFAULT_VOLUME;
   }
 }
 
-function readRaw(): string | null {
-  try {
-    return localStorage.getItem(STORAGE_KEY);
-  } catch {
-    return null;
-  }
+export function getVolumeServerSnapshot(): number {
+  return DEFAULT_VOLUME;
 }
 
-// useSyncExternalStore wiring: the snapshot must be the same object until the
-// stored value changes, and the server (no localStorage) renders the default.
-let cached: { raw: string | null; value: OrderSoundSettings } | null = null;
-const listeners = new Set<() => void>();
-
-export function getOrderSoundSnapshot(): OrderSoundSettings {
-  const raw = readRaw();
-  if (!cached || cached.raw !== raw) cached = { raw, value: parse(raw) };
-  return cached.value;
-}
-
-export function getOrderSoundServerSnapshot(): OrderSoundSettings {
-  return DEFAULT_ORDER_SOUND;
-}
-
-export function subscribeOrderSound(listener: () => void): () => void {
-  listeners.add(listener);
+export function subscribeVolume(listener: () => void): () => void {
+  volumeListeners.add(listener);
   window.addEventListener("storage", listener);
   return () => {
-    listeners.delete(listener);
+    volumeListeners.delete(listener);
     window.removeEventListener("storage", listener);
   };
 }
 
-export function saveOrderSound(settings: OrderSoundSettings) {
+export function saveVolume(volume: number) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    localStorage.setItem(VOLUME_KEY, String(volume));
   } catch {
-    // storage blocked (private mode etc.): the choice just won't persist
+    // storage blocked (private mode etc.): the volume just won't persist
   }
-  // Fall back to remembering it for this page view when storage is unavailable.
-  cached = { raw: readRaw(), value: settings };
-  listeners.forEach((l) => l());
+  volumeListeners.forEach((l) => l());
 }
 
 let context: AudioContext | null = null;

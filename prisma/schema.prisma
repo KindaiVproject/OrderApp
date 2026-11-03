@@ -106,6 +106,9 @@ model Instance {
   // Payment links shown as QR codes on /payment ("" = not registered).
   paypayUrl    String    @default("")
   dPaymentUrl  String    @default("")
+  // Sound the kitchen screen plays for a new order, shared by the whole
+  // instance: "chime" | "bell" | "beep" | "none" (src/lib/orderSound.ts).
+  orderSound   String    @default("chime")
   createdAt    DateTime  @default(now())
 
   members    InstanceMember[]

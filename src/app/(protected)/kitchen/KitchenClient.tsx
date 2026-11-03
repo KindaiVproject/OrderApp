@@ -10,25 +10,33 @@ import CompleteOrderModal from "@/components/CompleteOrderModal";
 import ConfirmModal from "@/components/ConfirmModal";
 import ScrollToTopButton from "@/components/ScrollToTopButton";
 import {
-  getOrderSoundServerSnapshot,
-  getOrderSoundSnapshot,
+  getVolumeServerSnapshot,
+  getVolumeSnapshot,
+  isOrderSoundId,
   playOrderSound,
-  saveOrderSound,
-  subscribeOrderSound,
+  saveVolume,
+  subscribeVolume,
   unlockAudio,
+  type OrderSoundId,
 } from "@/lib/orderSound";
 import OrderSoundControl from "./OrderSoundControl";
 
 const POLL_INTERVAL_MS = 2500;
 // Waiting orders at or above this count turn the counter red.
 const WAITING_ALERT_COUNT = 5;
+// How often to pick up a change of the instance's order sound made elsewhere.
+const SOUND_POLL_INTERVAL_MS = 15000;
 
 export default function KitchenClient({
   initialOrders,
   products,
+  initialSoundId,
+  canEditSound,
 }: {
   initialOrders: Order[];
   products: ProductModel[];
+  initialSoundId: string;
+  canEditSound: boolean;
 }) {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -37,7 +45,10 @@ export default function KitchenClient({
   const [cancellingOrder, setCancellingOrder] = useState<Order | null>(null);
   const [busy, setBusy] = useState(false);
   const pollingPaused = useRef(false);
-  const sound = useSyncExternalStore(subscribeOrderSound, getOrderSoundSnapshot, getOrderSoundServerSnapshot);
+  // Which sound rings is shared by the instance; the volume is per device.
+  const [soundId, setSoundId] = useState<OrderSoundId>(isOrderSoundId(initialSoundId) ? initialSoundId : "chime");
+  const volume = useSyncExternalStore(subscribeVolume, getVolumeSnapshot, getVolumeServerSnapshot);
+  const sound = useMemo(() => ({ id: soundId, volume }), [soundId, volume]);
   const soundRef = useRef(sound);
   // Ids seen on the last fetch, so only orders that are new since then ring.
   const knownIds = useRef(new Set(initialOrders.map((o) => o.id)));
@@ -45,6 +56,34 @@ export default function KitchenClient({
   useEffect(() => {
     soundRef.current = sound;
   }, [sound]);
+
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch("/api/order-sound");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (isOrderSoundId(data.id)) setSoundId(data.id);
+      } catch {
+        // ignore transient network errors, next tick retries
+      }
+    }, SOUND_POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, []);
+
+  async function changeSoundId(id: OrderSoundId): Promise<string | null> {
+    const res = await fetch("/api/order-sound", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return data.error ?? "音の変更に失敗しました";
+    }
+    setSoundId(id);
+    return null;
+  }
 
   useEffect(() => {
     // Browsers keep audio muted until the page is touched; any tap unlocks it.
@@ -135,7 +174,13 @@ export default function KitchenClient({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-base font-semibold text-neutral-800">厨房</h1>
-          <OrderSoundControl settings={sound} onChange={saveOrderSound} />
+          <OrderSoundControl
+            soundId={soundId}
+            volume={volume}
+            canEdit={canEditSound}
+            onChangeSound={changeSoundId}
+            onChangeVolume={saveVolume}
+          />
         </div>
         <div
           aria-live="polite"

@@ -31,6 +31,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       name,
       label,
       active: true,
+      orderSound: source.orderSound,
       products: {
         create: source.products.map((p) => ({
           name: p.name,

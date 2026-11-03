@@ -10,11 +10,16 @@ import CompleteOrderModal from "@/components/CompleteOrderModal";
 import ConfirmModal from "@/components/ConfirmModal";
 import ScrollToTopButton from "@/components/ScrollToTopButton";
 import {
+  getSpeechServerSnapshot,
+  getSpeechSnapshot,
   getVolumeServerSnapshot,
   getVolumeSnapshot,
   isOrderSoundId,
   playOrderSound,
+  saveSpeech,
   saveVolume,
+  speakOrders,
+  subscribeSpeech,
   subscribeVolume,
   unlockAudio,
   type OrderSoundId,
@@ -48,7 +53,8 @@ export default function KitchenClient({
   // Which sound rings is shared by the instance; the volume is per device.
   const [soundId, setSoundId] = useState<OrderSoundId>(isOrderSoundId(initialSoundId) ? initialSoundId : "chime");
   const volume = useSyncExternalStore(subscribeVolume, getVolumeSnapshot, getVolumeServerSnapshot);
-  const sound = useMemo(() => ({ id: soundId, volume }), [soundId, volume]);
+  const speech = useSyncExternalStore(subscribeSpeech, getSpeechSnapshot, getSpeechServerSnapshot);
+  const sound = useMemo(() => ({ id: soundId, volume, speech }), [soundId, volume, speech]);
   const soundRef = useRef(sound);
   // Ids seen on the last fetch, so only orders that are new since then ring.
   const knownIds = useRef(new Set(initialOrders.map((o) => o.id)));
@@ -111,9 +117,13 @@ export default function KitchenClient({
         const res = await fetch("/api/orders?status=WAITING");
         if (!res.ok) return;
         const data: Order[] = await res.json();
-        const arrived = data.some((o) => !knownIds.current.has(o.id));
+        const arrived = data.filter((o) => !knownIds.current.has(o.id));
         knownIds.current = new Set(data.map((o) => o.id));
-        if (arrived) playOrderSound(soundRef.current.id, soundRef.current.volume);
+        if (arrived.length > 0) {
+          const { id, volume, speech } = soundRef.current;
+          playOrderSound(id, volume);
+          if (speech) speakOrders(arrived.map((o) => o.items), volume, id);
+        }
         setOrders(data);
       } catch {
         // ignore transient network errors, next tick retries
@@ -212,6 +222,8 @@ export default function KitchenClient({
           <OrderSoundControl
             soundId={soundId}
             volume={volume}
+            speech={speech}
+            onChangeSpeech={saveSpeech}
             canEdit={canEditSound}
             onChangeSound={changeSoundId}
             onChangeVolume={saveVolume}

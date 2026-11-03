@@ -18,9 +18,12 @@ export function isOrderSoundId(v: unknown): v is OrderSoundId {
 }
 
 // Which sound rings is the instance's setting (Instance.orderSound, shared by
-// everyone in it). The volume depends on the speaker, so it stays on the device.
+// everyone in it). The volume and the read-aloud switch depend on the device
+// (its speaker, its voices), so they stay on the device.
 const DEFAULT_VOLUME = 0.8;
 const VOLUME_KEY = "orderapp.orderSoundVolume";
+const SPEECH_KEY = "orderapp.orderSpeech";
+// Both device settings share one listener set; a change re-checks both snapshots.
 const volumeListeners = new Set<() => void>();
 
 export function getVolumeSnapshot(): number {
@@ -56,6 +59,29 @@ export function saveVolume(volume: number) {
   volumeListeners.forEach((l) => l());
 }
 
+export function getSpeechSnapshot(): boolean {
+  try {
+    return localStorage.getItem(SPEECH_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function getSpeechServerSnapshot(): boolean {
+  return false;
+}
+
+export const subscribeSpeech = subscribeVolume;
+
+export function saveSpeech(on: boolean) {
+  try {
+    localStorage.setItem(SPEECH_KEY, on ? "1" : "0");
+  } catch {
+    // storage blocked: the switch just won't persist
+  }
+  volumeListeners.forEach((l) => l());
+}
+
 let context: AudioContext | null = null;
 
 function getContext(): AudioContext | null {
@@ -70,6 +96,7 @@ function getContext(): AudioContext | null {
 // Browsers keep audio muted until the person has touched the page, so this is
 // called from a tap/click. Returns whether sound can play now.
 export async function unlockAudio(): Promise<boolean> {
+  unlockSpeech();
   const ctx = getContext();
   if (!ctx) return false;
   if (ctx.state !== "running") {
@@ -142,4 +169,46 @@ export function playOrderSound(id: OrderSoundId, volume: number): boolean {
   master.connect(ctx.destination);
   schedule(ctx, master, PATTERNS[id]);
   return true;
+}
+
+// --- Reading the order aloud (optional) ---
+
+export function speechSupported(): boolean {
+  return typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+}
+
+// Like audio, speech can be blocked until the page has been touched; a silent
+// utterance from a tap lifts that.
+function unlockSpeech() {
+  if (!speechSupported()) return;
+  const u = new SpeechSynthesisUtterance("");
+  u.volume = 0;
+  window.speechSynthesis.speak(u);
+}
+
+type SpokenItem = { productName: string; quantity: number };
+
+// "たこ焼き 3個、ラムネ 1個"
+export function orderSpeechText(items: SpokenItem[]): string {
+  return items.map((i) => `${i.productName} ${i.quantity}個`).join("、");
+}
+
+// How long each chime lasts, so the voice starts after it instead of over it.
+const CHIME_MS: Record<OrderSoundId, number> = { none: 0, chime: 1300, bell: 1500, beep: 700 };
+
+// Queues one utterance per order (the browser reads them one after another).
+// `afterSound` waits for the chime to finish first.
+export function speakOrders(orders: SpokenItem[][], volume: number, afterSound: OrderSoundId) {
+  if (!speechSupported() || volume <= 0) return;
+  const speak = () => {
+    for (const items of orders) {
+      const u = new SpeechSynthesisUtterance(orderSpeechText(items));
+      u.lang = "ja-JP";
+      u.volume = Math.min(1, Math.max(0, volume));
+      window.speechSynthesis.speak(u);
+    }
+  };
+  const wait = CHIME_MS[afterSound];
+  if (wait > 0 && volume > 0) setTimeout(speak, wait);
+  else speak();
 }

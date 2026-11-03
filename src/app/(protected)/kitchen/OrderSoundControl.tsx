@@ -6,6 +6,8 @@ import {
   isAudioRunning,
   onAudioStateChange,
   playOrderSound,
+  speakOrders,
+  speechSupported,
   unlockAudio,
   type OrderSoundId,
 } from "@/lib/orderSound";
@@ -15,17 +17,22 @@ import {
 export default function OrderSoundControl({
   soundId,
   volume,
+  speech,
   canEdit,
   onChangeSound,
   onChangeVolume,
+  onChangeSpeech,
 }: {
   soundId: OrderSoundId;
   volume: number;
+  // Read the order's products and quantities aloud (this device only).
+  speech: boolean;
   // Which sound rings is the instance's setting; only instance admins can change it.
   canEdit: boolean;
   // Resolves to an error message, or null when saved.
   onChangeSound: (id: OrderSoundId) => Promise<string | null>;
   onChangeVolume: (volume: number) => void;
+  onChangeSpeech: (on: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,12 +48,23 @@ export default function OrderSoundControl({
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [open]);
 
+  // Reads a made-up order, so the voice and volume can be checked.
+  async function sample() {
+    await unlockAudio();
+    speakOrders(
+      [[{ productName: "たこ焼き", quantity: 2 }, { productName: "ラムネ", quantity: 1 }]],
+      volume,
+      "none",
+    );
+  }
+
   async function preview(id: OrderSoundId, volume: number) {
     if (await unlockAudio()) playOrderSound(id, volume);
   }
 
   const current = ORDER_SOUNDS.find((s) => s.id === soundId);
-  const muted = soundId === "none" || volume === 0;
+  const canSpeak = speechSupported();
+  const muted = (soundId === "none" && !(speech && canSpeak)) || volume === 0;
   // Sound is on but the browser hasn't allowed it yet (needs one tap on the page).
   const locked = !muted && !running;
 
@@ -75,7 +93,13 @@ export default function OrderSoundControl({
             <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" strokeLinecap="round" />
           )}
         </svg>
-        {soundId === "none" ? "音なし" : volume === 0 ? "消音" : (current?.label ?? "")}
+        {volume === 0
+          ? "消音"
+          : soundId === "none"
+            ? speech && canSpeak
+              ? "読み上げのみ"
+              : "音なし"
+            : `${current?.label ?? ""}${speech && canSpeak ? " + 読み上げ" : ""}`}
       </button>
 
       {open && (
@@ -142,6 +166,38 @@ export default function OrderSoundControl({
             />
           </label>
           <p className="mt-1 text-[11px] text-neutral-400">音量はこの端末だけの設定です。</p>
+
+          <div className="mt-3 border-t border-neutral-200 pt-3">
+            <label className={`flex items-start gap-2 ${canSpeak ? "cursor-pointer" : "opacity-50"}`}>
+              <input
+                type="checkbox"
+                checked={speech && canSpeak}
+                disabled={!canSpeak}
+                onChange={(e) => {
+                  onChangeSpeech(e.target.checked);
+                  if (e.target.checked) void sample();
+                }}
+                className="mt-0.5"
+              />
+              <span className="flex-1">
+                <span className="block text-sm text-neutral-800">注文内容を読み上げる</span>
+                <span className="block text-[11px] text-neutral-500">
+                  {canSpeak
+                    ? "音のあとに、商品と個数を声で読みます(この端末だけの設定)。"
+                    : "この端末のブラウザは読み上げに対応していません。"}
+                </span>
+              </span>
+            </label>
+            {canSpeak && (
+              <button
+                type="button"
+                onClick={() => void sample()}
+                className="mt-1.5 rounded border border-neutral-300 px-2 py-0.5 text-[11px] text-neutral-600 hover:bg-neutral-50"
+              >
+                試し読み
+              </button>
+            )}
+          </div>
 
           {locked && (
             <p className="mt-2 text-[11px] text-amber-700">

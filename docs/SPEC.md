@@ -220,7 +220,7 @@
 | `OrderItem` | productId?, productName, imageUrl?, unitPrice, quantity | スナップショット保持。商品削除時 `productId` は null に |
 | `EditLog` | instanceId, entityType(ORDER/PRODUCT/MEMBER/SHIFT/INSTANCE), entityId, action(CREATE/EDIT/CANCEL/COMPLETE/DELETE/INVITE/REVERT), summary, actorEmail, changes?(取り消し用の変更前後スナップショット), createdAt | `(instanceId, createdAt)` に index |
 
-マイグレーションは `prisma/migrations/`(init → 注文キャンセル+明細画像 → インスタンス管理者+編集履歴 → メンバー表示名 → ユーザー表示名 → シフトと Web Push → 役割マスタ → 役割の色 → 復帰予約 → カレンダー登録済み → 決済リンク → 履歴の取り消し用スナップショット)。
+マイグレーションは `prisma/migrations/`(init → 注文キャンセル+明細画像 → インスタンス管理者+編集履歴 → メンバー表示名 → ユーザー表示名 → シフトと Web Push → 役割マスタ → 役割の色 → 復帰予約 → カレンダー登録済み → 決済リンク → 履歴の取り消し用スナップショット → 厨房の注文追加音)。
 
 ## 9. CSV出力(`GET /api/orders/export`)
 

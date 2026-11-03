@@ -50,10 +50,9 @@ export function activeHours(stats: ReportStats): number[] {
   return Array.from({ length: last - first + 1 }, (_, i) => first + i);
 }
 
-export function reportFileName(meta: ReportMeta, ext: "pdf" | "xlsx" | "csv"): string {
+export function reportFileName(meta: ReportMeta, ext: "pdf" | "xlsx"): string {
   const part = meta.day ?? "全期間";
-  const kind = ext === "csv" ? "日別統計" : "統計レポート";
-  return `${kind}_${meta.instanceName}_${part}.${ext}`.replace(/[\\/:*?"<>|]/g, "_");
+  return `統計レポート_${meta.instanceName}_${part}.${ext}`.replace(/[\\/:*?"<>|]/g, "_");
 }
 
 export function percent(part: number, whole: number): number {

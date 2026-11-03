@@ -1,6 +1,6 @@
 import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
-import { formatJstDateTime } from "@/lib/datetime";
+import { formatJstDateKey, formatJstDateTime } from "@/lib/datetime";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payment";
 import type { PaymentMethod } from "@generated/prisma/enums";
 
@@ -13,15 +13,20 @@ function csvEscape(value: string | number) {
   return str;
 }
 
-export async function GET() {
+// Every day by default; ?day=YYYY-MM-DD (JST) limits it to that one day.
+export async function GET(request: Request) {
   const instance = await getCurrentInstance();
   if (!instance) return new Response("unauthorized", { status: 401 });
 
-  const orders = await prisma.order.findMany({
+  const day = new URL(request.url).searchParams.get("day");
+  if (day && !/^\d{4}-\d{2}-\d{2}$/.test(day)) return new Response("invalid day", { status: 400 });
+
+  const allOrders = await prisma.order.findMany({
     where: { instanceId: instance.id, status: { not: "CANCELLED" } },
     include: { items: true },
     orderBy: { createdAt: "asc" },
   });
+  const orders = day ? allOrders.filter((o) => formatJstDateKey(o.createdAt) === day) : allOrders;
 
   const rows = ["ID(OrderDB),timestamp,支払い方法,商品名,点数,商品単体価格,顧客特徴"];
   for (const order of orders) {
@@ -43,7 +48,7 @@ export async function GET() {
   }
 
   const csv = `﻿${rows.join("\r\n")}\r\n`;
-  const filename = `売上管理簿_${instance.name}_${new Date().toISOString().slice(0, 10)}.csv`;
+  const filename = `売上管理簿_${instance.name}_${day ?? "全日程"}.csv`.replace(/[\\/:*?"<>|]/g, "_");
 
   return new Response(csv, {
     headers: {

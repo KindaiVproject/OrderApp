@@ -1,13 +1,9 @@
 import { getCurrentInstance } from "@/lib/instance";
 import { prisma } from "@/lib/prisma";
 import { formatJstDateTime } from "@/lib/datetime";
+import { PAYMENT_METHOD_LABELS } from "@/lib/payment";
 import type { PaymentMethod } from "@generated/prisma/enums";
 
-const PAYMENT_LABELS: Record<PaymentMethod, string> = {
-  CASH: "現金/金券",
-  PAYPAY: "PayPay",
-  D_PAYMENT: "d払い",
-};
 
 function csvEscape(value: string | number) {
   const str = String(value);
@@ -30,7 +26,7 @@ export async function GET() {
   const rows = ["ID(OrderDB),timestamp,支払い方法,商品名,点数,商品単体価格,顧客特徴"];
   for (const order of orders) {
     const timestamp = formatJstDateTime(order.createdAt);
-    const payment = PAYMENT_LABELS[order.paymentMethod as PaymentMethod];
+    const payment = PAYMENT_METHOD_LABELS[order.paymentMethod as PaymentMethod];
     for (const item of order.items) {
       rows.push(
         [

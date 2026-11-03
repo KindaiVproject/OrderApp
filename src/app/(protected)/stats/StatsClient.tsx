@@ -6,7 +6,7 @@ import { formatJstDateShort } from "@/lib/datetime";
 import type { DailyTotal, PaymentDaily, PaymentTotal, ProductTotal } from "@/lib/stats";
 
 // One color per payment method, so a method reads the same in the bars and the table.
-const PAYMENT_COLORS: Record<string, string> = { CASH: "#2a78d6", PAYPAY: "#e11d48", D_PAYMENT: "#ea580c" };
+const PAYMENT_COLORS: Record<string, string> = { CASH: "#2a78d6", PAYPAY: "#e11d48", D_PAYMENT: "#ea580c", UNKNOWN: "#737373" };
 
 export default function StatsClient({
   dailyTotals,
@@ -84,7 +84,7 @@ export default function StatsClient({
       <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
         <h2 className="text-sm font-semibold text-neutral-700">統計レポートをダウンロード</h2>
         <p className="text-xs text-neutral-500">
-          ここにある統計(日別・時間帯別・決済手段別・商品別)を1つにまとめたレポートです。PDFは印刷・共有向け、Excelは集計・加工向けのひな形で出力します。
+          ここにある統計(日別・時間帯別・決済手段別・商品別)を1つにまとめたレポートです。PDFは印刷・共有向け、Excelは集計・加工向けのひな形で出力します。日別CSVは、日ごとの注文数・売上・決済手段別売上・商品別個数を1行ずつ並べたデータです。
         </p>
         {days.length === 0 ? (
           <p className="text-sm text-neutral-400">まだ売上データがありません</p>
@@ -110,6 +110,7 @@ export default function StatsClient({
                 [
                   ["pdf", "PDFで保存"],
                   ["xlsx", "Excelで保存"],
+                  ["csv", "日別CSVで保存"],
                 ] as const
               ).map(([format, label]) => (
                 <a

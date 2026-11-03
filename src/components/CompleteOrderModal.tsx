@@ -17,7 +17,10 @@ export default function CompleteOrderModal({
   onClose: () => void;
   onCompleted: (order: OrderWithItems) => void;
 }) {
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(order.paymentMethod as PaymentMethod);
+  // A sent-back order whose method was set to 不明 has to be chosen again.
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(
+    order.paymentMethod === "UNKNOWN" ? null : (order.paymentMethod as PaymentMethod),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // "Pay by method": how many pieces of each item go to each payment method.
@@ -27,6 +30,7 @@ export default function CompleteOrderModal({
 
   function openSplit() {
     const base = paymentMethod;
+    if (!base) return;
     setAlloc(
       Object.fromEntries(
         order.items.map((i) => [
@@ -42,6 +46,7 @@ export default function CompleteOrderModal({
   // back to the chosen base method (−). The item's total never changes.
   function move(itemId: string, to: PaymentMethod, delta: 1 | -1) {
     const base = paymentMethod;
+    if (!base) return;
     setAlloc((prev) => {
       const row = { ...prev[itemId] };
       const others = PAYMENT_METHOD_OPTIONS.map((o) => o.value).filter((m) => m !== to && row[m] > 0);
@@ -70,6 +75,10 @@ export default function CompleteOrderModal({
     : [];
 
   async function handleConfirm() {
+    if (!splitting && !paymentMethod) {
+      setError("支払い方法を選んでください");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -195,7 +204,12 @@ export default function CompleteOrderModal({
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <span className="text-xs text-neutral-600">支払い方法</span>
-              <button type="button" onClick={openSplit} className="text-xs text-neutral-500 underline">
+              <button
+                type="button"
+                onClick={openSplit}
+                disabled={!paymentMethod}
+                className="text-xs text-neutral-500 underline disabled:opacity-40"
+              >
                 支払い方法を分ける
               </button>
             </div>

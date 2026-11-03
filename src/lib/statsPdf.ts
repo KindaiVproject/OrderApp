@@ -22,7 +22,7 @@ const LINE = hex("#e5e5e5");
 const BAND = hex("#f5f5f5");
 const BLUE = "#2a78d6";
 const ORANGE = "#eb6834";
-const METHOD_COLORS: Record<string, string> = { CASH: "#2a78d6", PAYPAY: "#e11d48", D_PAYMENT: "#ea580c" };
+const METHOD_COLORS: Record<string, string> = { CASH: "#2a78d6", PAYPAY: "#e11d48", D_PAYMENT: "#ea580c", UNKNOWN: "#737373" };
 
 const yen = (n: number) => `${n.toLocaleString("ja-JP")}円`;
 const pct = (f: number) => `${(f * 100).toFixed(1)}%`;

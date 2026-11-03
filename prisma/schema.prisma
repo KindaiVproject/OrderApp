@@ -254,6 +254,7 @@ enum PaymentMethod {
   CASH // 現金/金券
   PAYPAY // PayPay
   D_PAYMENT // d払い
+  UNKNOWN // 不明 (only set afterwards, from the history edit)
 }
 
 enum OrderStatus {

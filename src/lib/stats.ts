@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { formatJstDateKey, getJstHour } from "@/lib/datetime";
-import { PAYMENT_METHOD_OPTIONS } from "@/lib/payment";
+import { PAYMENT_METHOD_OPTIONS, UNKNOWN_PAYMENT_OPTION } from "@/lib/payment";
 
 export type DailyTotal = { date: string; total: number; count: number; quantity: number };
 export type HourlyTotal = { hour: number; total: number };
@@ -21,7 +21,7 @@ export async function getOrderStats(instanceId: string, day?: string) {
 
   const dailyMap = new Map<string, { total: number; count: number; quantity: number }>();
   const hourlyByDay = new Map<string, number[]>();
-  const byPayment: PaymentTotal[] = PAYMENT_METHOD_OPTIONS.map(({ value, label }) => ({
+  const byPayment: PaymentTotal[] = [...PAYMENT_METHOD_OPTIONS, UNKNOWN_PAYMENT_OPTION].map(({ value, label }) => ({
     method: value,
     label,
     total: 0,
@@ -90,5 +90,13 @@ export async function getOrderStats(instanceId: string, day?: string) {
     (a, b) => b.total - a.total || b.quantity - a.quantity || a.name.localeCompare(b.name, "ja"),
   );
 
-  return { dailyTotals, hourlyByDay: hourlyByDayObj, byPayment, dailyByPayment, byProduct, productByDay };
+  return {
+    dailyTotals,
+    hourlyByDay: hourlyByDayObj,
+    // 不明 only shows up once an order has been set to it.
+    byPayment: byPayment.filter((p) => p.method !== "UNKNOWN" || p.count > 0),
+    dailyByPayment,
+    byProduct,
+    productByDay,
+  };
 }

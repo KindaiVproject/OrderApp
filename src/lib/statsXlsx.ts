@@ -11,7 +11,7 @@ const MUTED = "FF737373";
 const ACCENT = "FF2A78D6";
 const HEADER_FILL = "FF262626";
 const BAND_FILL = "FFF5F5F5";
-const METHOD_COLORS: Record<string, string> = { CASH: "FF2A78D6", PAYPAY: "FFE11D48", D_PAYMENT: "FFEA580C" };
+const METHOD_COLORS: Record<string, string> = { CASH: "FF2A78D6", PAYPAY: "FFE11D48", D_PAYMENT: "FFEA580C", UNKNOWN: "FF737373" };
 
 const YEN = '#,##0"円"';
 const COUNT = '#,##0"件"';

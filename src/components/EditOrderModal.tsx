@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { OrderModel, OrderItemModel, ProductModel } from "@generated/prisma/models";
 import type { PaymentMethod } from "@generated/prisma/enums";
-import { PAYMENT_METHOD_OPTIONS } from "@/lib/payment";
+import { PAYMENT_METHOD_OPTIONS, UNKNOWN_PAYMENT_OPTION } from "@/lib/payment";
 import ProductCard from "@/components/ProductCard";
 
 export type OrderWithItems = OrderModel & { items: OrderItemModel[] };
@@ -11,11 +11,14 @@ export type OrderWithItems = OrderModel & { items: OrderItemModel[] };
 export default function EditOrderModal({
   order,
   products,
+  allowUnknown = false,
   onClose,
   onSaved,
 }: {
   order: OrderWithItems;
   products: ProductModel[];
+  // Offer 不明 as a payment method (history edit of a completed order only).
+  allowUnknown?: boolean;
   onClose: () => void;
   onSaved: (order: OrderWithItems) => void;
 }) {
@@ -117,7 +120,7 @@ export default function EditOrderModal({
         </label>
 
         <div className="flex gap-1">
-          {PAYMENT_METHOD_OPTIONS.map((opt) => (
+          {(allowUnknown ? [...PAYMENT_METHOD_OPTIONS, UNKNOWN_PAYMENT_OPTION] : PAYMENT_METHOD_OPTIONS).map((opt) => (
             <button
               key={opt.value}
               type="button"

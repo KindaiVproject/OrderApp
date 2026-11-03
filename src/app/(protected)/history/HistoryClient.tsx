@@ -128,6 +128,7 @@ export default function HistoryClient({
         <EditOrderModal
           order={editingOrder}
           products={products}
+          allowUnknown={editingOrder.status === "COMPLETED"}
           onClose={() => setEditingOrder(null)}
           onSaved={(updated) => {
             setOrders((prev) => prev.map((o) => (o.id === updated.id ? updated : o)));

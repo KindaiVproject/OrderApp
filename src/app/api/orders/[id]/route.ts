@@ -40,7 +40,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const body = await request.json().catch(() => null);
 
-  if (body?.paymentMethod !== undefined && !PAYMENT_METHODS.includes(body.paymentMethod)) {
+  // 不明 is only for completed orders (set from the history edit); an order that
+  // is already 不明 may keep it when something else is edited.
+  const paymentAllowed =
+    PAYMENT_METHODS.includes(body?.paymentMethod) ||
+    body?.paymentMethod === existing.paymentMethod ||
+    (body?.paymentMethod === "UNKNOWN" && existing.status === "COMPLETED");
+  if (body?.paymentMethod !== undefined && !paymentAllowed) {
     return NextResponse.json({ error: "支払い方法が不正です" }, { status: 400 });
   }
 

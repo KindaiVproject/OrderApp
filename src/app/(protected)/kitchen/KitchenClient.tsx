@@ -158,6 +158,18 @@ export default function KitchenClient({
 
   // Optimistic: the poll (or a failed request) puts the real value back.
   async function setServed(orderId: string, itemId: string, servedQuantity: number) {
+    // Handing over the last piece: ask to confirm the payment method and complete.
+    const target = orders.find((o) => o.id === orderId);
+    if (target) {
+      const updated = {
+        ...target,
+        items: target.items.map((i) => (i.id === itemId ? { ...i, servedQuantity } : i)),
+      };
+      const wasAllServed = target.items.every((i) => i.servedQuantity >= i.quantity);
+      if (!wasAllServed && updated.items.every((i) => i.servedQuantity >= i.quantity)) {
+        setCompletingOrder(updated);
+      }
+    }
     setOrders((prev) =>
       prev.map((o) =>
         o.id === orderId
@@ -351,6 +363,7 @@ export default function KitchenClient({
       {completingOrder && (
         <CompleteOrderModal
           order={completingOrder}
+          allServed={completingOrder.items.every((i) => i.servedQuantity >= i.quantity)}
           onClose={() => setCompletingOrder(null)}
           onCompleted={(completed) => {
             setOrders((prev) => prev.filter((o) => o.id !== completed.id));

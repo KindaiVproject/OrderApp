@@ -7,10 +7,13 @@ import type { OrderWithItems } from "@/components/EditOrderModal";
 
 export default function CompleteOrderModal({
   order,
+  allServed = false,
   onClose,
   onCompleted,
 }: {
   order: OrderWithItems;
+  // Opened because the last item was just handed over (partial serving).
+  allServed?: boolean;
   onClose: () => void;
   onCompleted: (order: OrderWithItems) => void;
 }) {
@@ -36,6 +39,11 @@ export default function CompleteOrderModal({
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4">
       <div className="flex w-full max-w-sm flex-col gap-3 rounded-lg bg-white p-4">
         <h2 className="text-sm font-semibold text-neutral-800">提供完了にする</h2>
+        {allServed && (
+          <p className="rounded-md bg-emerald-50 px-2 py-1.5 text-xs text-emerald-800">
+            全品を提供しました。支払い方法に変更がないか確認して「確定」してください。
+          </p>
+        )}
 
         <div className="rounded-md bg-neutral-50 p-2">
           <ul className="flex flex-col gap-1">

@@ -87,6 +87,7 @@
 - 右側: 自分のGoogleアイコン(押すと `/account`)、ログアウト(アイコンのみ)。アイコンがない/読み込めない場合は名前の頭文字の丸を表示(`components/Avatar.tsx`)。
 - **「ページ上部へ戻る」ボタン**(`components/ScrollToTopButton.tsx`): 厨房と注文履歴が長くなったとき用。400px以上スクロールすると右下に丸い「↑」が出て、押すとスムーズに先頭へ戻る。
 - モーダルは `fixed` + `z-30`(ヘッダー `z-20` より上)。
+- **新しいバージョンのお知らせ**(`components/UpdateNotice.tsx`、`Providers.tsx` から全ページに表示): デプロイされた新しい版が出ると、画面下に「新しいバージョンがあります。再読み込みすると最新になります。」と **「再読み込み」「あとで」** の黒いバーを出す。**勝手には再読み込みしない。** 仕組み: ビルド時に `next.config.ts` が `NEXT_PUBLIC_APP_VERSION`(`VERCEL_GIT_COMMIT_SHA`、なければ `VERCEL_DEPLOYMENT_ID`、ローカルは `dev`)を埋め込み、`GET /api/version`(キャッシュなし)が今デプロイされている版を返す。開いているページが **60秒ごと・タブに戻ったとき** に見比べ、違えば通知する。「あとで」は10分間隠れ、まだ古ければ再表示。**注文画面(`/order`)と、ポップアップ(`fixed inset-0` の要素)が開いている間は出さない**(入力中の邪魔をしないため。閉じる/画面を移ると出る)。新しいモーダルも `fixed inset-0` で作れば自動で対象になる。
 - **ブラウザ標準の `window.prompt` / `window.confirm` は使わない**(利用環境で動作しない)。確認は `ConfirmModal` またはアプリ内モーダルで行う。
 - 画面端まで引っ張ったときにページ全体(ヘッダー含む)が伸びる Android のオーバースクロール効果と、プルダウン更新は `overscroll-behavior-y: none` で無効化している(`globals.css`)。
 - **リンクカード(Discord / X 等)**: ルートレイアウトの `metadata` に Open Graph / Twitter Card を設定し、画像は `src/app/opengraph-image.png`(1200×630、ロゴ+「注文管理」)。URL をログイン前のページ(`/` → `/login`)にリダイレクトしても、クローラーは同じメタタグを読める。画像の絶対URLは `VERCEL_PROJECT_PRODUCTION_URL`(Vercel が自動設定する本番ドメイン)から組み立てる(`layout.tsx` の `metadataBase`)。**`/shifts` は専用のカード**(タイトル「シフトを確認」、画像 `src/app/shifts/opengraph-image.png` に「シフトを確認」の文字入り。`?instance=…` 付きも同じ)。リンクプレビューのクローラー(Discordbot / Twitterbot / Slackbot / facebookexternalhit / LinkedInBot / WhatsApp / TelegramBot / Applebot)は未ログインでログイン画面へ飛ばされるとそちらのタグを読んでしまうため、`/shifts` ではクローラーのUAだけ、個人データを含まない簡易ページ(タグ付き)を200で返す。普通のブラウザは従来どおり未ログインなら `/login` へ。他のページのカードは従来どおりルートの設定(画像 `src/app/opengraph-image.png`)。カードの見た目を変えるときは画像を作り直し、Discord 側は古い表示がキャッシュされることがある。
@@ -250,6 +251,7 @@
 | POST | `/api/orders/[id]/cancel` | メンバー | キャンセル |
 | POST | `/api/orders/complete-bulk` | メンバー | 複数の待機中注文を一括完了 |
 | GET | `/api/orders/export` | メンバー | CSV出力 |
+| GET | `/api/version` | なし | 今デプロイされている版(`{version}`)。開いているページが古いかの判定用。キャッシュしない |
 | GET / POST | `/api/products` | メンバー | 有効な商品一覧 / 登録 |
 | PATCH / DELETE | `/api/products/[id]` | メンバー | 編集 / 論理削除 |
 | POST | `/api/products/upload` | メンバー | 画像アップロード(multipart、5MB以下) |

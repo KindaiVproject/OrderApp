@@ -2,6 +2,7 @@
 
 import { SessionProvider } from "next-auth/react";
 import { useEffect } from "react";
+import UpdateNotice from "@/components/UpdateNotice";
 
 // Blocks the browser's long-press context menu (save image / open in new
 // tab / copy image) on <img> elements. -webkit-touch-callout: none in
@@ -21,5 +22,10 @@ function useBlockImageContextMenu() {
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   useBlockImageContextMenu();
-  return <SessionProvider>{children}</SessionProvider>;
+  return (
+    <SessionProvider>
+      {children}
+      <UpdateNotice />
+    </SessionProvider>
+  );
 }

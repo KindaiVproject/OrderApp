@@ -275,6 +275,9 @@ model OrderItem {
   imageUrl    String?
   unitPrice   Int
   quantity    Int
+  // How many of `quantity` have already been handed over while the order is
+  // still waiting (partial serving). 0..quantity.
+  servedQuantity Int @default(0)
 
   @@index([orderId])
 }

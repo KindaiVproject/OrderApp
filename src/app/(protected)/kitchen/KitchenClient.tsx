@@ -126,9 +126,12 @@ export default function KitchenClient({
     const counts = new Map<string, { qty: number; imageUrl: string | null }>();
     for (const order of orders) {
       for (const item of order.items) {
+        // Only what is still to be made: the ones already handed over don't count.
+        const remaining = item.quantity - item.servedQuantity;
+        if (remaining <= 0) continue;
         const existing = counts.get(item.productName);
         counts.set(item.productName, {
-          qty: (existing?.qty ?? 0) + item.quantity,
+          qty: (existing?.qty ?? 0) + remaining,
           imageUrl: existing?.imageUrl ?? item.imageUrl,
         });
       }
@@ -151,6 +154,26 @@ export default function KitchenClient({
       else next.add(orderId);
       return next;
     });
+  }
+
+  // Optimistic: the poll (or a failed request) puts the real value back.
+  async function setServed(orderId: string, itemId: string, servedQuantity: number) {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? { ...o, items: o.items.map((i) => (i.id === itemId ? { ...i, servedQuantity } : i)) }
+          : o,
+      ),
+    );
+    try {
+      await fetch(`/api/orders/${orderId}/served`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ itemId, servedQuantity }),
+      });
+    } catch {
+      // ignore transient network errors; the next poll shows the saved value
+    }
   }
 
   async function completeBulk() {
@@ -254,24 +277,33 @@ export default function KitchenClient({
                   <span>{formatJstTime(new Date(order.createdAt))}</span>
                   <span>{PAYMENT_METHOD_LABELS[order.paymentMethod as PaymentMethod]}</span>
                   {order.customerNote && <span>特徴: {order.customerNote}</span>}
+                  <ServeBadge items={order.items} />
                 </div>
-                <ul className="mt-1 flex flex-col gap-1">
-                  {order.items.map((item) => (
-                    <li key={item.id} className="flex items-center gap-2 text-sm">
-                      {item.imageUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={item.imageUrl}
-                          alt=""
-                          draggable={false}
-                          className="h-8 w-8 rounded object-cover"
+                <ul className="mt-1 flex flex-col gap-1.5">
+                  {order.items.map((item) => {
+                    const done = item.servedQuantity >= item.quantity;
+                    return (
+                      <li key={item.id} className="flex items-center gap-2 text-sm">
+                        {item.imageUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={item.imageUrl}
+                            alt=""
+                            draggable={false}
+                            className={`h-8 w-8 rounded object-cover ${done ? "opacity-40" : ""}`}
+                          />
+                        )}
+                        <span className={`flex-1 ${done ? "text-neutral-400 line-through" : ""}`}>
+                          {item.productName} × {item.quantity}
+                        </span>
+                        <ServeControl
+                          quantity={item.quantity}
+                          served={item.servedQuantity}
+                          onChange={(n) => setServed(order.id, item.id, n)}
                         />
-                      )}
-                      <span>
-                        {item.productName} × {item.quantity}
-                      </span>
-                    </li>
-                  ))}
+                      </li>
+                    );
+                  })}
                 </ul>
 
                 <div className="mt-2 flex gap-2">
@@ -347,5 +379,86 @@ export default function KitchenClient({
       )}
       <ScrollToTopButton />
     </div>
+  );
+}
+
+// "一部提供済": some of the order is handed over, some still to make.
+function ServeBadge({ items }: { items: Order["items"] }) {
+  const total = items.reduce((n, i) => n + i.quantity, 0);
+  const served = items.reduce((n, i) => n + i.servedQuantity, 0);
+  if (served === 0) return null;
+  if (served >= total) {
+    return (
+      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+        全品提供済 → 「提供完了」を押してください
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-800">
+      一部提供済 ・ 未提供 {total - served}個
+    </span>
+  );
+}
+
+// One item: a single toggle when it's one piece, otherwise a −/＋ counter of
+// how many have been handed over.
+function ServeControl({
+  quantity,
+  served,
+  onChange,
+}: {
+  quantity: number;
+  served: number;
+  onChange: (served: number) => void;
+}) {
+  if (quantity === 1) {
+    const done = served >= 1;
+    return (
+      <button
+        type="button"
+        onClick={() => onChange(done ? 0 : 1)}
+        aria-pressed={done}
+        className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+          done
+            ? "border-emerald-300 bg-emerald-100 text-emerald-800"
+            : "border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-50"
+        }`}
+      >
+        {done ? "提供済" : "未提供"}
+      </button>
+    );
+  }
+  const done = served >= quantity;
+  const step =
+    "flex h-8 w-8 items-center justify-center rounded-full border text-base font-semibold disabled:opacity-30";
+  return (
+    <span className="flex items-center gap-1.5">
+      <button
+        type="button"
+        aria-label="提供済を1つ減らす"
+        disabled={served <= 0}
+        onClick={() => onChange(served - 1)}
+        className={`${step} border-neutral-300 bg-white text-neutral-700`}
+      >
+        −
+      </button>
+      <span
+        className={`min-w-[3.25rem] text-center text-xs font-semibold tabular-nums ${
+          done ? "text-emerald-700" : served > 0 ? "text-sky-700" : "text-neutral-500"
+        }`}
+      >
+        提供 {served}/{quantity}
+      </span>
+      <button
+        type="button"
+        aria-label="提供済を1つ増やす"
+        disabled={done}
+        onClick={() => onChange(served + 1)}
+        className={`${step} border-neutral-300 bg-white text-neutral-700`}
+      >
+        ＋
+      </button>
+    </span>
   );
 }

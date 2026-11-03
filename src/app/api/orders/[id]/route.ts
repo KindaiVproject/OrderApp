@@ -52,6 +52,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     });
     const productMap = new Map(products.map((p) => [p.id, p]));
 
+    const servedByProduct = new Map<string, number>();
+    for (const i of existing.items) {
+      if (i.productId) servedByProduct.set(i.productId, (servedByProduct.get(i.productId) ?? 0) + i.servedQuantity);
+    }
     const orderItems = [];
     for (const item of body.items) {
       const product = productMap.get(item.productId);
@@ -65,6 +69,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         imageUrl: product.imageUrl,
         unitPrice: product.price,
         quantity,
+        // Keep what was already handed over for a product that stays in the order.
+        servedQuantity: Math.min(servedByProduct.get(product.id) ?? 0, quantity),
       });
     }
     if (orderItems.length === 0) {

@@ -62,6 +62,9 @@ export async function snapshotsOf(
             imageUrl: i.imageUrl,
             unitPrice: i.unitPrice,
             quantity: i.quantity,
+            // Only when set, so orders nobody partially served look the same as
+            // in edit-log entries recorded before this field existed.
+            ...(i.servedQuantity > 0 ? { servedQuantity: i.servedQuantity } : {}),
           })),
           (i) => `${i.productName}\u0000${i.productId ?? ""}\u0000${i.unitPrice}\u0000${i.quantity}`,
         ),
@@ -113,7 +116,14 @@ type OrderState = {
   customerNote: string | null;
   createdAt: string;
   completedAt: string | null;
-  items: { productId: string | null; productName: string; imageUrl: string | null; unitPrice: number; quantity: number }[];
+  items: {
+    productId: string | null;
+    productName: string;
+    imageUrl: string | null;
+    unitPrice: number;
+    quantity: number;
+    servedQuantity?: number;
+  }[];
 };
 type ProductState = { name: string; price: number; imageUrl: string | null; sortOrder: number; active: boolean };
 type ShiftState = { startsAt: string; endsAt: string; createdAt: string; assignments: { memberId: string; role: string }[] };

@@ -123,6 +123,20 @@ export default function StatsClient({
                 </a>
               ))}
             </div>
+            <div className="flex flex-col gap-1.5 border-t border-neutral-200 pt-3">
+              <p className="text-xs text-neutral-500">
+                全日の売上データ(1行=注文明細。日付・支払い方法・商品・個数・単価・客の特徴)は、上の対象に関係なく全期間まとめて保存できます。
+              </p>
+              <div>
+                <a
+                  href="/api/orders/export"
+                  download
+                  className="inline-block rounded-lg border border-neutral-900 px-3 py-1.5 text-xs font-medium text-neutral-900"
+                >
+                  全日の売上データCSVで保存
+                </a>
+              </div>
+            </div>
           </>
         )}
       </div>

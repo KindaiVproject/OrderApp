@@ -35,7 +35,7 @@ const KANA =
 const STATIC_TEXT =
   "売上統計レポート対象出力総売上注文件数販売個数客単価1件あたり決済手段別日付合計日別の時間帯別全日の商品別" +
   "順位商品名割合平均単価円個件時0円の商品(廃棄・検食など)は含みません売上データがありません…/:〜%" +
-  "現金/金券PayPayd払い全期間";
+  "現金/金券PayPayd払い全期間不明日ごとの決済手段売れ行き商品時間帯別売上上位5品縦軸は日ごと共通個数順";
 
 type Align = "left" | "right" | "center";
 type Column = { title: string; width: number; align?: Align };
@@ -212,6 +212,36 @@ class Report {
     this.y -= 14;
   }
 
+  // A small heading above a run of cards.
+  subhead(text: string, note?: string) {
+    this.text(text, M, this.y, { size: 9, bold: true, color: MUTED });
+    if (note) this.text(note, W - M, this.y, { size: 7.5, color: MUTED, align: "right" });
+    this.y -= 14;
+  }
+
+  // One card per day, three across (each a third of the content width), going
+  // down the page row by row. `draw` fills a card: (day, left x, top y, width).
+  dayCards(days: string[], height: number, draw: (day: string, x: number, top: number, w: number) => void) {
+    const gap = 10;
+    const w = (CW - gap * 2) / 3;
+    for (let i = 0; i < days.length; i += 3) {
+      this.ensure(height + 10);
+      days.slice(i, i + 3).forEach((day, j) => {
+        const x = M + j * (w + gap);
+        this.rect(x, this.y - height, w, height, BAND);
+        draw(day, x, this.y, w);
+      });
+      this.y -= height + 10;
+    }
+    this.y -= 16;
+  }
+
+  // The date on the left and the day's sales on the right, at the top of a card.
+  cardHead(day: string, total: number, x: number, top: number, w: number) {
+    this.text(day, x + 8, top - 14, { size: 8, bold: true, maxWidth: w * 0.5 });
+    this.text(yen(total), x + w - 8, top - 14, { size: 8, align: "right", maxWidth: w * 0.5 - 8 });
+  }
+
   paymentSection() {
     const { stats } = this;
     const sum = summarize(stats);
@@ -237,6 +267,26 @@ class Report {
           yen(stats.byPayment.reduce((s, m) => s + (d.totals[m.method] ?? 0), 0)),
         ]),
         { total: ["合計", ...stats.byPayment.map((m) => yen(m.total)), yen(sum.total)] },
+      );
+      const rowH = 17;
+      this.ensure(24 + stats.byPayment.length * rowH + 30);
+      this.subhead("日ごとの決済手段");
+      this.dayCards(
+        stats.dailyByPayment.map((d) => d.date),
+        26 + stats.byPayment.length * rowH,
+        (day, x, top, w) => {
+          const totals = stats.dailyByPayment.find((d) => d.date === day)?.totals ?? {};
+          const dayTotal = stats.byPayment.reduce((s, m) => s + (totals[m.method] ?? 0), 0);
+          this.cardHead(day, dayTotal, x, top, w);
+          stats.byPayment.forEach((m, i) => {
+            const v = totals[m.method] ?? 0;
+            const ry = top - 30 - i * rowH;
+            this.text(m.label, x + 8, ry, { size: 7, maxWidth: w * 0.45 });
+            this.text(yen(v), x + w - 8, ry, { size: 7, align: "right", maxWidth: w * 0.5 - 8 });
+            this.rect(x + 8, ry - 6, w - 16, 3, rgb(1, 1, 1));
+            this.rect(x + 8, ry - 6, (w - 16) * percent(v, dayTotal), 3, hex(METHOD_COLORS[m.method] ?? BLUE));
+          });
+        },
       );
     }
   }
@@ -291,6 +341,26 @@ class Report {
       if (values[i] > 0 && slot > 24) this.text(values[i].toLocaleString("ja-JP"), x + slot * 0.35, base + bh + 3, { size: 6.5, align: "center" });
     });
     this.y = base - 30;
+
+    if (days.length > 1) {
+      // Same vertical scale on every card, so the days can be compared.
+      const dayMax = niceMax(Math.max(...days.flatMap((d) => hours.map((h) => stats.hourlyByDay[d]?.[h] ?? 0))));
+      this.ensure(100 + 30);
+      this.subhead("日ごとの時間帯別売上", "縦軸は日ごと共通");
+      this.dayCards(days, 96, (day, x, top, w) => {
+        const dayValues = hours.map((h) => stats.hourlyByDay[day]?.[h] ?? 0);
+        this.cardHead(day, dayValues.reduce((s, v) => s + v, 0), x, top, w);
+        const chartH = 52;
+        const cBase = top - 96 + 18;
+        const slot = (w - 16) / hours.length;
+        this.page.drawLine({ start: { x: x + 8, y: cBase }, end: { x: x + w - 8, y: cBase }, thickness: 0.4, color: LINE });
+        hours.forEach((h, i) => {
+          const bx = x + 8 + slot * i + slot * 0.15;
+          this.rect(bx, cBase, slot * 0.7, (dayValues[i] / dayMax) * chartH, hex(BLUE));
+          if (slot >= 9 || i % 2 === 0) this.text(`${h}`, bx + slot * 0.35, cBase - 9, { size: 6, color: MUTED, align: "center" });
+        });
+      });
+    }
   }
 
   productSection() {
@@ -317,6 +387,30 @@ class Report {
         bars: { column: 6, fractions: products.map((p) => percent(p.total, max)), color: ORANGE },
       },
     );
+
+    const days = stats.dailyTotals.map((d) => d.date);
+    if (days.length > 1) {
+      const TOP = 5;
+      const rowH = 17;
+      this.ensure(26 + TOP * rowH + 30);
+      this.subhead("日ごとの売れ行き商品", `個数順の上位${TOP}品`);
+      this.dayCards(days, 26 + TOP * rowH, (day, x, top, w) => {
+        const all = Object.entries(stats.productByDay[day] ?? {})
+          .map(([name, v]) => ({ name, ...v }))
+          .sort((a, b) => b.quantity - a.quantity || b.total - a.total || a.name.localeCompare(b.name, "ja"));
+        const sold = all.slice(0, TOP);
+        this.cardHead(day, all.reduce((s, p) => s + p.total, 0), x, top, w);
+        const dayMax = sold[0]?.quantity ?? 0;
+        sold.forEach((p, i) => {
+          const ry = top - 30 - i * rowH;
+          this.text(p.name, x + 8, ry, { size: 7, maxWidth: w * 0.62 });
+          this.text(`${p.quantity.toLocaleString("ja-JP")}個`, x + w - 8, ry, { size: 7, align: "right" });
+          this.rect(x + 8, ry - 6, w - 16, 3, rgb(1, 1, 1));
+          this.rect(x + 8, ry - 6, (w - 16) * percent(p.quantity, dayMax), 3, hex(ORANGE));
+        });
+        if (sold.length === 0) this.text("売上なし", x + 8, top - 30, { size: 7, color: MUTED });
+      });
+    }
   }
 
   footers() {

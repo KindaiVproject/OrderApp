@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import BarChart, { QUANTITY_COLOR, type BarDatum } from "@/components/BarChart";
+import DownloadPanel from "./DownloadPanel";
 import { formatJstDateShort } from "@/lib/datetime";
 import type { DailyTotal, PaymentDaily, PaymentTotal, ProductTotal } from "@/lib/stats";
 
@@ -27,10 +28,6 @@ export default function StatsClient({
   const [showQuantityTable, setShowQuantityTable] = useState(false);
   const [showHourlyTable, setShowHourlyTable] = useState(false);
   const [showPaymentTable, setShowPaymentTable] = useState(false);
-  // Which period the downloaded report covers: "all" or one day.
-  const [reportDay, setReportDay] = useState("all");
-  // Which day the 各日程CSV covers (the latest day to begin with).
-  const [csvDay, setCsvDay] = useState(days[days.length - 1] ?? "");
   const [productSort, setProductSort] = useState<"total" | "quantity">("total");
 
   const dailyBars: BarDatum[] = dailyTotals.map((d) => ({
@@ -83,97 +80,7 @@ export default function StatsClient({
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4">
       <h1 className="text-base font-semibold text-neutral-800">売上統計</h1>
 
-      <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
-        <h2 className="text-sm font-semibold text-neutral-700">統計レポートをダウンロード</h2>
-        <p className="text-xs text-neutral-500">
-          ここにある統計(日別・時間帯別・決済手段別・商品別)を1つにまとめたレポートです。PDFは印刷・共有向け、Excelは集計・加工向けのひな形で出力します。日別CSVは、日ごとの注文数・売上・決済手段別売上・商品別個数を1行ずつ並べたデータです。
-        </p>
-        {days.length === 0 ? (
-          <p className="text-sm text-neutral-400">まだ売上データがありません</p>
-        ) : (
-          <>
-            <label className="flex items-center gap-2 text-xs text-neutral-600">
-              対象
-              <select
-                value={reportDay}
-                onChange={(e) => setReportDay(e.target.value)}
-                className="rounded border border-neutral-300 px-2 py-1 text-xs"
-              >
-                <option value="all">全期間</option>
-                {days.map((day) => (
-                  <option key={day} value={day}>
-                    {day}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  ["pdf", "PDFで保存"],
-                  ["xlsx", "Excelで保存"],
-                ] as const
-              ).map(([format, label]) => (
-                <a
-                  key={format}
-                  href={`/api/stats/report?format=${format}&day=${reportDay}`}
-                  download
-                  className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white"
-                >
-                  {label}
-                </a>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
-      {days.length > 0 && (
-        <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
-          <h2 className="text-sm font-semibold text-neutral-700">売上データCSVをダウンロード</h2>
-          <p className="text-xs text-neutral-500">
-            1行が注文明細(日時・支払い方法・商品・個数・単価・客の特徴)の売上データです。キャンセルした注文は含みません。
-          </p>
-          <div className="flex flex-col gap-1.5 rounded-md bg-neutral-50 p-2.5">
-            <span className="text-xs font-semibold text-neutral-700">各日程CSV</span>
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={csvDay}
-                onChange={(e) => setCsvDay(e.target.value)}
-                aria-label="CSVにする日"
-                className="rounded border border-neutral-300 bg-white px-2 py-1 text-xs"
-              >
-                {days.map((day) => (
-                  <option key={day} value={day}>
-                    {day}
-                  </option>
-                ))}
-              </select>
-              <a
-                href={`/api/orders/export?day=${csvDay}`}
-                download
-                className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white"
-              >
-                選んだ日のCSVで保存
-              </a>
-            </div>
-            <span className="text-[11px] text-neutral-400">ファイル名: 売上管理簿_(インスタンス名)_日付.csv</span>
-          </div>
-          <div className="flex flex-col gap-1.5 rounded-md bg-neutral-50 p-2.5">
-            <span className="text-xs font-semibold text-neutral-700">全日程CSV</span>
-            <div>
-              <a
-                href="/api/orders/export"
-                download
-                className="inline-block rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white"
-              >
-                全日程まとめてCSVで保存
-              </a>
-            </div>
-            <span className="text-[11px] text-neutral-400">ファイル名: 売上管理簿_(インスタンス名)_全日程.csv</span>
-          </div>
-        </div>
-      )}
+      <DownloadPanel days={days} />
 
       <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
         <div className="flex items-center justify-between">

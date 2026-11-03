@@ -1,8 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { formatJstDateKey, getJstHour } from "@/lib/datetime";
+import { PAYMENT_METHOD_OPTIONS } from "@/lib/payment";
 
 export type DailyTotal = { date: string; total: number; count: number; quantity: number };
 export type HourlyTotal = { hour: number; total: number };
+export type PaymentTotal = { method: string; label: string; total: number; count: number; quantity: number };
+export type PaymentDaily = { date: string; totals: Record<string, number> };
 
 export async function getOrderStats(instanceId: string) {
   // Cancelled orders never became a sale — same population as the CSV export.
@@ -14,6 +17,14 @@ export async function getOrderStats(instanceId: string) {
 
   const dailyMap = new Map<string, { total: number; count: number; quantity: number }>();
   const hourlyByDay = new Map<string, number[]>();
+  const byPayment: PaymentTotal[] = PAYMENT_METHOD_OPTIONS.map(({ value, label }) => ({
+    method: value,
+    label,
+    total: 0,
+    count: 0,
+    quantity: 0,
+  }));
+  const paymentByDay = new Map<string, Record<string, number>>();
 
   for (const order of orders) {
     const total = order.items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
@@ -27,6 +38,16 @@ export async function getOrderStats(instanceId: string) {
     day.quantity += quantity;
     dailyMap.set(dateKey, day);
 
+    const method = byPayment.find((p) => p.method === order.paymentMethod);
+    if (method) {
+      method.total += total;
+      method.count += 1;
+      method.quantity += quantity;
+    }
+    const dayPayments = paymentByDay.get(dateKey) ?? {};
+    dayPayments[order.paymentMethod] = (dayPayments[order.paymentMethod] ?? 0) + total;
+    paymentByDay.set(dateKey, dayPayments);
+
     const hours = hourlyByDay.get(dateKey) ?? new Array(24).fill(0);
     hours[hour] += total;
     hourlyByDay.set(dateKey, hours);
@@ -39,5 +60,10 @@ export async function getOrderStats(instanceId: string) {
   const hourlyByDayObj: Record<string, number[]> = {};
   for (const [date, hours] of hourlyByDay) hourlyByDayObj[date] = hours;
 
-  return { dailyTotals, hourlyByDay: hourlyByDayObj };
+  const dailyByPayment: PaymentDaily[] = dailyTotals.map(({ date }) => ({
+    date,
+    totals: paymentByDay.get(date) ?? {},
+  }));
+
+  return { dailyTotals, hourlyByDay: hourlyByDayObj, byPayment, dailyByPayment };
 }

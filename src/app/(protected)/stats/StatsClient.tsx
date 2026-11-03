@@ -3,20 +3,28 @@
 import { useMemo, useState } from "react";
 import BarChart, { QUANTITY_COLOR, type BarDatum } from "@/components/BarChart";
 import { formatJstDateShort } from "@/lib/datetime";
-import type { DailyTotal } from "@/lib/stats";
+import type { DailyTotal, PaymentDaily, PaymentTotal } from "@/lib/stats";
+
+// One color per payment method, so a method reads the same in the bars and the table.
+const PAYMENT_COLORS: Record<string, string> = { CASH: "#2a78d6", PAYPAY: "#e11d48", D_PAYMENT: "#ea580c" };
 
 export default function StatsClient({
   dailyTotals,
   hourlyByDay,
+  byPayment,
+  dailyByPayment,
 }: {
   dailyTotals: DailyTotal[];
   hourlyByDay: Record<string, number[]>;
+  byPayment: PaymentTotal[];
+  dailyByPayment: PaymentDaily[];
 }) {
   const days = useMemo(() => dailyTotals.map((d) => d.date), [dailyTotals]);
   const [selectedDay, setSelectedDay] = useState(days[days.length - 1] ?? "");
   const [showDailyTable, setShowDailyTable] = useState(false);
   const [showQuantityTable, setShowQuantityTable] = useState(false);
   const [showHourlyTable, setShowHourlyTable] = useState(false);
+  const [showPaymentTable, setShowPaymentTable] = useState(false);
 
   const dailyBars: BarDatum[] = dailyTotals.map((d) => ({
     label: formatJstDateShort(d.date),
@@ -55,6 +63,7 @@ export default function StatsClient({
     });
   }, [hourlyByDay, selectedDay]);
 
+  const paymentTotal = byPayment.reduce((sum, p) => sum + p.total, 0);
   const selectedDayTotal = dailyTotals.find((d) => d.date === selectedDay)?.total ?? 0;
 
   return (
@@ -142,6 +151,81 @@ export default function StatsClient({
                       <td className="py-1">{d.date}</td>
                       <td className="py-1">{d.count}件</td>
                       <td className="py-1">{d.quantity.toLocaleString("ja-JP")}個</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-neutral-700">決済手段別</h2>
+          <span className="text-xs text-neutral-500">
+            合計 <span className="font-semibold text-neutral-800">{paymentTotal.toLocaleString("ja-JP")}円</span>
+          </span>
+        </div>
+        {paymentTotal === 0 && dailyTotals.length === 0 ? (
+          <p className="text-sm text-neutral-400">まだ売上データがありません</p>
+        ) : (
+          <>
+            <ul className="flex flex-col gap-3">
+              {byPayment.map((p) => {
+                const share = paymentTotal > 0 ? (p.total / paymentTotal) * 100 : 0;
+                return (
+                  <li key={p.method} className="flex flex-col gap-1">
+                    <div className="flex items-baseline justify-between gap-2 text-xs">
+                      <span className="font-semibold text-neutral-800">{p.label}</span>
+                      <span className="text-neutral-500">
+                        <span className="font-semibold text-neutral-800">{p.total.toLocaleString("ja-JP")}円</span>
+                        ・{share.toFixed(1)}%・{p.count}件・{p.quantity.toLocaleString("ja-JP")}個
+                      </span>
+                    </div>
+                    <div className="h-2.5 overflow-hidden rounded-full bg-neutral-100">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${share}%`, backgroundColor: PAYMENT_COLORS[p.method] ?? "#737373" }}
+                      />
+                    </div>
+                    {p.count > 0 && (
+                      <p className="text-[11px] text-neutral-400">
+                        1件あたり平均 {Math.round(p.total / p.count).toLocaleString("ja-JP")}円
+                      </p>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            <button
+              type="button"
+              onClick={() => setShowPaymentTable((v) => !v)}
+              className="self-start text-xs text-neutral-500 underline"
+            >
+              {showPaymentTable ? "日別の内訳を隠す" : "日別の内訳を表で見る"}
+            </button>
+            {showPaymentTable && (
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="text-neutral-500">
+                    <th className="py-1 font-medium">日付</th>
+                    {byPayment.map((p) => (
+                      <th key={p.method} className="py-1 font-medium">
+                        {p.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {dailyByPayment.map((d) => (
+                    <tr key={d.date} className="border-t border-neutral-100">
+                      <td className="py-1">{d.date}</td>
+                      {byPayment.map((p) => (
+                        <td key={p.method} className="py-1">
+                          {(d.totals[p.method] ?? 0).toLocaleString("ja-JP")}円
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>

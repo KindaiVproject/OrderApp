@@ -27,6 +27,8 @@ export default function StatsClient({
   const [showQuantityTable, setShowQuantityTable] = useState(false);
   const [showHourlyTable, setShowHourlyTable] = useState(false);
   const [showPaymentTable, setShowPaymentTable] = useState(false);
+  // Which period the downloaded report covers: "all" or one day.
+  const [reportDay, setReportDay] = useState("all");
   const [productSort, setProductSort] = useState<"total" | "quantity">("total");
 
   const dailyBars: BarDatum[] = dailyTotals.map((d) => ({
@@ -78,6 +80,51 @@ export default function StatsClient({
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4">
       <h1 className="text-base font-semibold text-neutral-800">売上統計</h1>
+
+      <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
+        <h2 className="text-sm font-semibold text-neutral-700">統計レポートをダウンロード</h2>
+        <p className="text-xs text-neutral-500">
+          ここにある統計(日別・時間帯別・決済手段別・商品別)を1つにまとめたレポートです。PDFは印刷・共有向け、Excelは集計・加工向けのひな形で出力します。
+        </p>
+        {days.length === 0 ? (
+          <p className="text-sm text-neutral-400">まだ売上データがありません</p>
+        ) : (
+          <>
+            <label className="flex items-center gap-2 text-xs text-neutral-600">
+              対象
+              <select
+                value={reportDay}
+                onChange={(e) => setReportDay(e.target.value)}
+                className="rounded border border-neutral-300 px-2 py-1 text-xs"
+              >
+                <option value="all">全期間</option>
+                {days.map((day) => (
+                  <option key={day} value={day}>
+                    {day}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ["pdf", "PDFで保存"],
+                  ["xlsx", "Excelで保存"],
+                ] as const
+              ).map(([format, label]) => (
+                <a
+                  key={format}
+                  href={`/api/stats/report?format=${format}&day=${reportDay}`}
+                  download
+                  className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white"
+                >
+                  {label}
+                </a>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
       <div className="flex flex-col gap-3 rounded-lg border border-neutral-200 bg-white p-3 shadow-sm">
         <div className="flex items-center justify-between">

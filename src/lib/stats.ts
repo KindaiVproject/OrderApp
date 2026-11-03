@@ -8,13 +8,16 @@ export type PaymentTotal = { method: string; label: string; total: number; count
 export type ProductTotal = { name: string; total: number; quantity: number; orders: number };
 export type PaymentDaily = { date: string; totals: Record<string, number> };
 
-export async function getOrderStats(instanceId: string) {
+// `day` ("YYYY-MM-DD", JST) limits everything to that one day; leave it out for
+// the whole period.
+export async function getOrderStats(instanceId: string, day?: string) {
   // Cancelled orders never became a sale — same population as the CSV export.
-  const orders = await prisma.order.findMany({
+  const allOrders = await prisma.order.findMany({
     where: { instanceId, status: { not: "CANCELLED" } },
     include: { items: true },
     orderBy: { createdAt: "asc" },
   });
+  const orders = day ? allOrders.filter((o) => formatJstDateKey(o.createdAt) === day) : allOrders;
 
   const dailyMap = new Map<string, { total: number; count: number; quantity: number }>();
   const hourlyByDay = new Map<string, number[]>();
@@ -29,6 +32,7 @@ export async function getOrderStats(instanceId: string) {
   // Per product name (the name snapshot on the order line, so renamed or
   // deleted products still count). Free lines (0円: 廃棄・検食 etc.) are left out.
   const productMap = new Map<string, ProductTotal>();
+  const productByDay: Record<string, Record<string, { quantity: number; total: number }>> = {};
 
   for (const order of orders) {
     const total = order.items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
@@ -49,6 +53,10 @@ export async function getOrderStats(instanceId: string) {
       p.quantity += item.quantity;
       p.orders += 1;
       productMap.set(item.productName, p);
+      const dayProducts = (productByDay[dateKey] ??= {});
+      const d = (dayProducts[item.productName] ??= { quantity: 0, total: 0 });
+      d.quantity += item.quantity;
+      d.total += item.unitPrice * item.quantity;
     }
 
     const method = byPayment.find((p) => p.method === order.paymentMethod);
@@ -82,5 +90,5 @@ export async function getOrderStats(instanceId: string) {
     (a, b) => b.total - a.total || b.quantity - a.quantity || a.name.localeCompare(b.name, "ja"),
   );
 
-  return { dailyTotals, hourlyByDay: hourlyByDayObj, byPayment, dailyByPayment, byProduct };
+  return { dailyTotals, hourlyByDay: hourlyByDayObj, byPayment, dailyByPayment, byProduct, productByDay };
 }

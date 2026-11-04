@@ -30,13 +30,17 @@ export async function getOrderStats(instanceId: string, day?: string) {
   }));
   const paymentByDay = new Map<string, Record<string, number>>();
   // Per product name (the name snapshot on the order line, so renamed or
-  // deleted products still count). Free lines (0円: 廃棄・検食 etc.) are left out.
+  // deleted products still count).
   const productMap = new Map<string, ProductTotal>();
   const productByDay: Record<string, Record<string, { quantity: number; total: number }>> = {};
 
   for (const order of orders) {
-    const total = order.items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
-    const quantity = order.items.reduce((sum, i) => sum + i.quantity, 0);
+    // Free lines (0円) count for nothing here: not as pieces sold, and an order
+    // made only of them is not an order in the statistics.
+    const paidItems = order.items.filter((i) => i.unitPrice > 0);
+    if (paidItems.length === 0) continue;
+    const total = paidItems.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
+    const quantity = paidItems.reduce((sum, i) => sum + i.quantity, 0);
     const dateKey = formatJstDateKey(order.createdAt);
     const hour = getJstHour(order.createdAt);
 
@@ -46,8 +50,7 @@ export async function getOrderStats(instanceId: string, day?: string) {
     day.quantity += quantity;
     dailyMap.set(dateKey, day);
 
-    for (const item of order.items) {
-      if (item.unitPrice === 0) continue;
+    for (const item of paidItems) {
       const p = productMap.get(item.productName) ?? { name: item.productName, total: 0, quantity: 0, orders: 0 };
       p.total += item.unitPrice * item.quantity;
       p.quantity += item.quantity;

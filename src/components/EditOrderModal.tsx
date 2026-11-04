@@ -5,6 +5,7 @@ import type { OrderModel, OrderItemModel, ProductModel } from "@generated/prisma
 import type { PaymentMethod } from "@generated/prisma/enums";
 import { PAYMENT_METHOD_OPTIONS, UNKNOWN_PAYMENT_OPTION } from "@/lib/payment";
 import ProductCard from "@/components/ProductCard";
+import QuantityInput from "@/components/QuantityInput";
 
 export type OrderWithItems = OrderModel & { items: OrderItemModel[] };
 
@@ -32,6 +33,10 @@ export default function EditOrderModal({
 
   function changeQty(productId: string, delta: number) {
     setCart((prev) => ({ ...prev, [productId]: Math.max(0, (prev[productId] ?? 0) + delta) }));
+  }
+
+  function setQty(productId: string, quantity: number) {
+    setCart((prev) => ({ ...prev, [productId]: Math.max(0, quantity) }));
   }
 
   async function handleSave() {
@@ -96,7 +101,12 @@ export default function EditOrderModal({
                     >
                       −
                     </button>
-                    <span className="w-5 text-center">{qty}</span>
+                    <QuantityInput
+                      value={qty}
+                      onChange={(n) => setQty(productId, n)}
+                      label={`${product.name}の個数`}
+                      className="h-6 w-11"
+                    />
                     <button
                       type="button"
                       onClick={() => changeQty(productId, 1)}

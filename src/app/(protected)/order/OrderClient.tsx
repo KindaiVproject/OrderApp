@@ -5,6 +5,7 @@ import type { ProductModel as Product } from "@generated/prisma/models";
 import type { PaymentMethod } from "@generated/prisma/enums";
 import { PAYMENT_METHOD_OPTIONS } from "@/lib/payment";
 import ProductCard from "@/components/ProductCard";
+import QuantityInput from "@/components/QuantityInput";
 
 type CartLine = { product: Product; quantity: number };
 
@@ -39,6 +40,10 @@ export default function OrderClient({ products }: { products: Product[] }) {
       const next = Math.max(0, (prev[productId] ?? 0) + delta);
       return { ...prev, [productId]: next };
     });
+  }
+
+  function setQty(productId: string, quantity: number) {
+    setCart((prev) => ({ ...prev, [productId]: Math.max(0, quantity) }));
   }
 
   function resetForm() {
@@ -117,7 +122,12 @@ export default function OrderClient({ products }: { products: Product[] }) {
               >
                 −
               </button>
-              <span className="w-6 text-center text-sm">{line.quantity}</span>
+              <QuantityInput
+                value={line.quantity}
+                onChange={(n) => setQty(line.product.id, n)}
+                label={`${line.product.name}の個数`}
+                className="h-7 w-12"
+              />
               <button
                 type="button"
                 onClick={() => changeQty(line.product.id, 1)}
